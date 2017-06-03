@@ -1,0 +1,3 @@
+LIBRARY stop_likelihoods.pyd
+EXPORTS
+stop_likelihoods
