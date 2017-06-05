@@ -29,30 +29,31 @@ cdef extern from "stdlib.h":
     void* realloc(void* ptr, size_t size)
 
 
-cdef inline double ExGauss_pdf(double value, double mu, double sigma, double tau) nogil:
+cdef inline double ExGauss_pdf(double value, double mu, double sigma, double tau, double shift) nogil:
     """ ExGaussian log pdf"""
     cdef double z
     if tau > 0.05*sigma:
-        z = value - mu - ((sigma**2)/tau)
+        z = value - (mu + shift) - ((sigma**2)/tau)
         return -log(tau) - (z+(sigma**2/(2*tau)))/tau + log( gsl_cdf_gaussian_P(z/sigma, 1) )
     else: 
-        return log(gsl_ran_gaussian_pdf(value-mu, sigma))
+        return log(gsl_ran_gaussian_pdf(value-(mu+shift), sigma))
 
-cdef inline double ExGauss_cdf(double value, double mu, double sigma, double tau) nogil:
+cdef inline double ExGauss_cdf(double value, double mu, double sigma, double tau, double shift) nogil:
     """ ExGaussian log cdf upper tail"""
     cdef double z
     if tau > 0.05*sigma:
-        z = value - mu - ((sigma**2)/tau)
-        return log(1-(gsl_cdf_gaussian_P((value-mu)/sigma,1)-gsl_cdf_gaussian_P(z/sigma,1)*exp((((mu+((sigma**2)/tau))**2)-
-        (mu**2)-2*value *((sigma**2)/tau))/(2*(sigma**2)))))   
+        z = value - (mu+shift) - ((sigma**2)/tau)
+        return log(1-(gsl_cdf_gaussian_P((value-(mu+shift))/sigma,1)-gsl_cdf_gaussian_P(z/sigma,1)*exp(((((mu+shift)+((sigma**2)/tau))**2)-
+        ((mu+shift)**2)-2*value *((sigma**2)/tau))/(2*(sigma**2)))))   
     else:
-        return log((1-(gsl_cdf_gaussian_P(((value-mu)/sigma), 1))))
+        return log((1-(gsl_cdf_gaussian_P(((value-(mu+shift))/sigma), 1))))
 
-def Go(np.ndarray[double, ndim=1] value, double imu_go, double isigma_go, double itau_go):
+def Go(np.ndarray[double, ndim=1] value, double imu_go, double isigma_go, double itau_go, double ishift_go):
     """Ex-Gaussian log-likelihood of GoRTs"""
     assert imu_go > 0
     assert isigma_go > 0
     assert itau_go > 0
+    assert ishift_go > 0
     assert np.all(value != -999.)
 
     cdef Py_ssize_t size = value.shape[0]
@@ -61,7 +62,7 @@ def Go(np.ndarray[double, ndim=1] value, double imu_go, double isigma_go, double
     cdef double sum_logp = 0
 
     for i in range(size):
-        p = ExGauss_pdf(value[i], imu_go, isigma_go, itau_go)
+        p = ExGauss_pdf(value[i], imu_go, isigma_go, itau_go, ishift_go)
 
         if np.isinf(p) or np.isnan(p):
             return -np.inf
@@ -70,14 +71,16 @@ def Go(np.ndarray[double, ndim=1] value, double imu_go, double isigma_go, double
 
     return sum_logp
 
-def SRRT(np.ndarray[double, ndim=1] value, np.ndarray[int, ndim=1] issd, double imu_go, double isigma_go, double itau_go, double imu_stop, double isigma_stop, double itau_stop, double ip_tf):
+def SRRT(np.ndarray[double, ndim=1] value, np.ndarray[int, ndim=1] issd, double imu_go, double isigma_go, double itau_go, double ishift_go, double imu_stop, double isigma_stop, double itau_stop, double ishift_stop, double ip_tf):
     """Censored ExGaussian log-likelihood of SRRTs"""
     assert imu_go > 0
     assert isigma_go > 0
     assert itau_go > 0
+    assert ishift_go > 0
     assert imu_stop > 0
     assert isigma_stop > 0
     assert itau_stop > 0
+    assert ishift_stop > 0
     assert ip_tf >= 0 
     assert ip_tf <= 1
     
@@ -91,8 +94,8 @@ def SRRT(np.ndarray[double, ndim=1] value, np.ndarray[int, ndim=1] issd, double 
     cdef double sum_logp = 0
 
     for i in range(size):
-        p1= exp(ExGauss_pdf(value[i], imu_go, isigma_go, itau_go))*ip_tf
-        p2= exp(ExGauss_pdf(value[i], imu_go, isigma_go, itau_go))*exp(ExGauss_cdf(value[i]-issd[i], imu_stop, isigma_stop, itau_stop))*(1-ip_tf)
+        p1= exp(ExGauss_pdf(value[i], imu_go, isigma_go, itau_go, ishift_go))*ip_tf
+        p2= exp(ExGauss_pdf(value[i], imu_go, isigma_go, itau_go, ishift_go))*exp(ExGauss_cdf(value[i]-issd[i], imu_stop, isigma_stop, itau_stop, ishift_stop))*(1-ip_tf)
         p=log(p1+p2)
         if np.isinf(p) or np.isnan(p):
             return -np.inf
@@ -101,14 +104,16 @@ def SRRT(np.ndarray[double, ndim=1] value, np.ndarray[int, ndim=1] issd, double 
 
     return sum_logp
 
-def Inhibitions(np.ndarray[int, ndim=2] value, double imu_go, double isigma_go, double itau_go, double imu_stop, double isigma_stop, double itau_stop, double ip_tf):
+def Inhibitions(np.ndarray[int, ndim=2] value, double imu_go, double isigma_go, double itau_go, double ishift_go, double imu_stop, double isigma_stop, double itau_stop, ishift_stop, double ip_tf):
     """Censored ExGaussian log-likelihood of inhibitions"""
     assert imu_go > 0
     assert isigma_go > 0
     assert itau_go > 0
+    assert ishift_go > 0
     assert imu_stop > 0
     assert isigma_stop > 0
     assert itau_stop > 0
+    assert ishift_stop > 0
     assert ip_tf >= 0 
     assert ip_tf <= 1
     
@@ -133,7 +138,7 @@ def Inhibitions(np.ndarray[int, ndim=2] value, double imu_go, double isigma_go, 
         #assert (iinteg_lower > 0)
 
         # Compute probability of single SSD
-        p_ssd = log(integrate_cexgauss(iinteg_lower, iinteg_upper, imu_go, isigma_go, itau_go, imu_stop, isigma_stop, itau_stop, ip_tf, ssd))
+        p_ssd = log(integrate_cexgauss(iinteg_lower, iinteg_upper, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf, ssd))
         if np.isinf(p_ssd) or np.isnan(p_ssd):
             return -np.inf
         # Multiply with number of trials and add to overall p
@@ -145,26 +150,28 @@ def Inhibitions(np.ndarray[int, ndim=2] value, double imu_go, double isigma_go, 
 # Integration routines #
 ########################
 cdef double eval_cexgauss(double x, void * params) nogil:
-    cdef double imu_go, isigma_go, itau_go, imu_stop, isigma_stop, itau_stop, ip_tf, issd
+    cdef double imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf, issd
     cdef double p
     imu_go = (<double_ptr> params)[0]
     isigma_go = (<double_ptr> params)[1]
     itau_go = (<double_ptr> params)[2]
-    imu_stop = (<double_ptr> params)[3]
-    isigma_stop = (<double_ptr> params)[4]
-    itau_stop = (<double_ptr> params)[5]
-    ip_tf = (<double_ptr> params)[6]
-    issd = (<double_ptr> params)[7]
+    ishift_go = (<double_ptr> params)[3]
+    imu_stop = (<double_ptr> params)[4]
+    isigma_stop = (<double_ptr> params)[5]
+    itau_stop = (<double_ptr> params)[6]
+    ishift_stop = (<double_ptr> params)[7]
+    ip_tf = (<double_ptr> params)[8]
+    issd = (<double_ptr> params)[9]
         
-    p = exp(ExGauss_cdf(x, imu_go, isigma_go, itau_go)) * exp(ExGauss_pdf(x-issd, imu_stop, isigma_stop, itau_stop)) * (1-ip_tf)
+    p = exp(ExGauss_cdf(x, imu_go, isigma_go, itau_go, ishift_go)) * exp(ExGauss_pdf(x-issd, imu_stop, isigma_stop, itau_stop, ishift_stop)) * (1-ip_tf)
 
     return p
 
-cdef double integrate_cexgauss(double lower, double upper, double imu_go, double isigma_go, double itau_go, double imu_stop, double isigma_stop, double itau_stop, double ip_tf, int issd):
+cdef double integrate_cexgauss(double lower, double upper, double imu_go, double isigma_go, double itau_go, double ishift_go, double imu_stop, double isigma_stop, double itau_stop, double ishift_stop, double ip_tf, int issd):
 
     cdef double alpha, result, error, expected
     cdef gsl_function F
-    cdef double params[8]
+    cdef double params[10]
     cdef size_t neval
     cdef gsl_integration_workspace * W
     W = gsl_integration_workspace_alloc(5000)
@@ -172,11 +179,13 @@ cdef double integrate_cexgauss(double lower, double upper, double imu_go, double
     params[0] = imu_go
     params[1] = isigma_go
     params[2] = itau_go
-    params[3] = imu_stop
-    params[4] = isigma_stop
-    params[5] = itau_stop
-    params[6] = ip_tf
-    params[7] = issd
+    params[3] = ishift_go
+    params[4] = imu_stop
+    params[5] = isigma_stop
+    params[6] = itau_stop
+    params[7] = ishift_stop
+    params[8] = ip_tf
+    params[9] = issd
 
     F.function = &eval_cexgauss
     F.params = params

@@ -1,4 +1,4 @@
-git reset --hard HEAD
+#git reset --hard HEAD
 
 rm src/*.c *.so -rf build
 

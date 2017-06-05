@@ -48,6 +48,10 @@ go_tau_lower = float(vars["go tau lower"])
 go_tau_upper = float(vars["go tau upper"])
 go_tau_start = float(vars["go tau start"])
 
+go_shift_lower = float(vars["go shift lower"])
+go_shift_upper = float(vars["go shift upper"])
+go_shift_start = float(vars["go shift start"])
+
 stop_mu_lower = float(vars["stop mu lower"])
 stop_mu_upper = float(vars["stop mu upper"])
 stop_mu_start = float(vars["stop mu start"]) 
@@ -59,6 +63,10 @@ stop_sigma_start = float(vars["stop sigma start"])
 stop_tau_lower = float(vars["stop tau lower"])
 stop_tau_upper = float(vars["stop tau upper"])
 stop_tau_start = float(vars["stop tau start"])
+
+stop_shift_lower = float(vars["stop shift lower"])
+stop_shift_upper = float(vars["stop shift upper"])
+stop_shift_start = float(vars["stop shift start"])
 
 pf_lower = float(vars["stop pf lower"]) 
 pf_upper = float(vars["stop pf upper"]) 
@@ -78,6 +86,10 @@ go_tau_sd_lower = float(vars["go tau sd lower"])
 go_tau_sd_upper = float(vars["go tau sd upper"])
 go_tau_sd_start = float(vars["go tau sd start"])
 
+go_shift_sd_lower = float(vars["go shift sd lower"]) 
+go_shift_sd_upper = float(vars["go shift sd upper"])
+go_shift_sd_start = float(vars["go shift sd start"])
+
 stop_mu_sd_lower = float(vars["stop mu sd lower"]) 
 stop_mu_sd_upper = float(vars["stop mu sd upper"])
 stop_mu_sd_start = float(vars["stop mu sd start"])
@@ -90,6 +102,10 @@ stop_tau_sd_lower = float(vars["stop tau sd lower"])
 stop_tau_sd_upper = float(vars["stop tau sd upper"])
 stop_tau_sd_start = float(vars["stop tau sd start"])
 
+stop_shift_sd_lower = float(vars["stop shift sd lower"])
+stop_shift_sd_upper = float(vars["stop shift sd upper"])
+stop_shift_sd_start = float(vars["stop shift sd start"])
+
 pf_sd_lower = float(vars["stop pf sd lower"])
 pf_sd_upper = float(vars["stop pf sd upper"])
 pf_sd_start = float(vars["stop pf sd start"])
@@ -97,17 +113,17 @@ pf_sd_start = float(vars["stop pf sd start"])
 iinteg_lower = int(vars["limits of integration lower"])
 iinteg_upper = int(vars["limits of integration upper"])
 
-def cython_Go(value, imu_go, isigma_go, itau_go):
+def cython_Go(value, imu_go, isigma_go, itau_go, ishift_go):
     """Ex-Gaussian log-likelihood of GoRTs"""
-    return stop_likelihoods_wtf.Go(value, imu_go, isigma_go, itau_go)
+    return stop_likelihoods_wtf.Go(value, imu_go, isigma_go, itau_go, ishift_go)
 
-def cython_SRRT(value, issd, imu_go, isigma_go, itau_go, imu_stop, isigma_stop, itau_stop, ip_tf):
+def cython_SRRT(value, issd, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf):
     """Censored ExGaussian log-likelihood of SRRTs"""
-    return stop_likelihoods_wtf.SRRT(value, issd, imu_go, isigma_go, itau_go, imu_stop, isigma_stop, itau_stop, ip_tf)
+    return stop_likelihoods_wtf.SRRT(value, issd, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf)
 
-def cython_Inhibitions(value, imu_go, isigma_go, itau_go, imu_stop, isigma_stop, itau_stop, ip_tf):
+def cython_Inhibitions(value, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf):
     """Censored ExGaussian log-likelihood of inhibitions"""
-    return stop_likelihoods_wtf.Inhibitions(value, imu_go, isigma_go, itau_go, imu_stop, isigma_stop, itau_stop, ip_tf)
+    return stop_likelihoods_wtf.Inhibitions(value, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf)
 
 Go_like = pm.stochastic_from_dist(name="Ex-Gauss GoRT",
                                   logp=cython_Go,
@@ -158,12 +174,14 @@ class StopSignal(Hierarchical):
         ss_parents['imu_go'] = knodes['mu_go_bottom']
         ss_parents['isigma_go'] = knodes['sigma_go_bottom']
         ss_parents['itau_go'] = knodes['tau_go_bottom']
+        ss_parents['ishift_go'] = knodes['shift_go_bottom']
         ss_parents['imu_stop'] = knodes['mu_stop_bottom']
         ss_parents['isigma_stop'] = knodes['sigma_stop_bottom']
         ss_parents['itau_stop'] = knodes['tau_stop_bottom']
+        ss_parents['ishift_stop'] = knodes['shift_stop_bottom']
         ss_parents['ip_tf'] = knodes['p_tf_bottom']
 
-        go_like = KnodeGo(Go_like, 'go_like', col_name='rt', observed=True, imu_go=ss_parents['imu_go'], isigma_go=ss_parents['isigma_go'], itau_go=ss_parents['itau_go'])
+        go_like = KnodeGo(Go_like, 'go_like', col_name='rt', observed=True, imu_go=ss_parents['imu_go'], isigma_go=ss_parents['isigma_go'], itau_go=ss_parents['itau_go'], ishift_go=ss_parents['ishift_go'])
         srrt_like = KnodeSRRT(SRRT_like, 'srrt_like', col_name='rt', observed=True, **ss_parents)
         inhibitions_like = KnodeInhibitions(Inhibitions_like, 'inhibitions_like', col_name='rt', observed=True, **ss_parents)
 
@@ -174,9 +192,11 @@ class StopSignal(Hierarchical):
         knodes.update(self.create_family_trunc_normal('mu_go', lower=go_mu_lower, upper=go_mu_upper, value=go_mu_start,var_lower=go_mu_sd_lower, var_upper=go_mu_sd_upper, var_value=go_mu_sd_start))
         knodes.update(self.create_family_trunc_normal('sigma_go', lower=go_sigma_lower, upper=go_sigma_upper, value=go_sigma_start,var_lower=go_sigma_sd_lower, var_upper=go_sigma_sd_upper, var_value=go_sigma_sd_start))
         knodes.update(self.create_family_trunc_normal('tau_go', lower=go_tau_lower, upper=go_tau_upper, value=go_tau_start,var_lower=go_tau_sd_lower, var_upper=go_tau_sd_upper, var_value=go_tau_sd_start))
+        knodes.update(self.create_family_trunc_normal('shift_go', lower=go_shift_lower, upper=go_shift_upper, value=go_shift_start,var_lower=go_shift_sd_lower, var_upper=go_shift_sd_upper, var_value=go_shift_sd_start))
         knodes.update(self.create_family_trunc_normal('mu_stop', lower=stop_mu_lower, upper=stop_mu_upper, value=stop_mu_start,var_lower=stop_mu_sd_lower, var_upper=stop_mu_sd_upper, var_value=stop_mu_sd_start))
         knodes.update(self.create_family_trunc_normal('sigma_stop', lower=stop_sigma_lower, upper=stop_sigma_upper, value=stop_sigma_start,var_lower=stop_sigma_sd_lower, var_upper=stop_sigma_sd_upper, var_value=stop_sigma_sd_start))
         knodes.update(self.create_family_trunc_normal('tau_stop', lower=stop_tau_lower, upper=stop_tau_upper, value=stop_tau_start,var_lower=stop_tau_sd_lower, var_upper=stop_tau_sd_upper, var_value=stop_tau_sd_start))
+        knodes.update(self.create_family_trunc_normal('shift_stop', lower=stop_shift_lower, upper=stop_shift_upper, value=stop_shift_start,var_lower=stop_shift_sd_lower, var_upper=stop_shift_sd_upper, var_value=stop_shift_sd_start))
         knodes.update(self.create_family_trunc_normal_probit('p_tf', lower_ind=pf_lower, upper_ind=pf_upper, mean_gr=pf_mean, var_gr=pf_sd, lower=pf_lower, upper=pf_upper, value=pf_start, var_lower=pf_sd_lower, var_upper=pf_sd_upper, var_value=pf_sd_start))
      
         likelihoods = self.create_ss_knode(knodes)

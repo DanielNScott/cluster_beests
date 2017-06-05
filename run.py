@@ -6,8 +6,8 @@ import cStringIO
 #print(os.getcwd())
 
 sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/stopsignal_wtf') # location of src 
-sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/') # location of src 
-sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/build/lib.linux-x86_64-2.7/') # location of src 
+#sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/') # location of src 
+#sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/build/lib.linux-x86_64-2.7/') # location of src 
 #print(sys.path)
 
 #import ipdb
@@ -127,8 +127,8 @@ else:
         if (ncol==4):
                 if (float(vars["stop pf lower"]) < 0 or float(vars["stop pf upper"]) > 1):
                         sys.exit() 
-        check_par(pars=("go mu", "go sigma", "go tau", "stop mu", "stop sigma", "stop tau", "stop pf", "go mu sd", 
-              "go sigma sd", "go tau sd", "stop mu sd", "stop sigma sd", "stop tau sd", "stop pf sd"))   
+        check_par(pars=("go mu", "go sigma", "go tau", "go shift", "stop mu", "stop sigma", "stop tau", "stop shift", "stop pf", "go mu sd", 
+              "go sigma sd", "go tau sd", "go shift sd", "stop mu sd", "stop sigma sd", "stop tau sd", "stop shift sd", "stop pf sd"))   
 
 #guess if rt data is in msec vs. sec
 rts = data["rt"]
