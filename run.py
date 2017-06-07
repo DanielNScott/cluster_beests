@@ -3,23 +3,16 @@ import os
 import sys
 import cStringIO
 
-#print(os.getcwd())
+sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/stopsignal_wtf') # location of src
 
-sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/stopsignal_wtf') # location of src 
-#sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/') # location of src 
-#sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/build/lib.linux-x86_64-2.7/') # location of src 
-#print(sys.path)
-
-#import ipdb
-#ipdb.set_trace()
-
-if (len(sys.argv) != 4):
-	print("no good!")
+if (len(sys.argv) != 1):
+	print("Please provide exactly one argument, the path to the analysis directory.")
+	print("This path must contain 'sst_data.csv' and 'analysis.txt', the BEESTS data and config files.")
 	exit(1)
 
-dataFile = sys.argv[1]
-path_analysisDir = sys.argv[2]
-path__analysisDescription = sys.argv[3]
+path_analysisDir = sys.argv[0]
+dataFile = sys.argv[0] + 'sst_data.csv'
+path__analysisDescription = sys.argv[0] + 'analysis.txt'
 
 #make dict for input arguments
 vars = dict()
@@ -32,7 +25,7 @@ with open(path__analysisDescription) as f:
         number = line[eq_index + 1:].strip()
         number = number.replace('"', '').strip()
         vars[var_name] = number
-        
+
 samples	= int(vars["samples"])
 burnIn 	= int(vars["burn-in"])
 numberOfChains = int(vars["number of chains"])
@@ -43,7 +36,7 @@ posteriorDistributions = (int(vars["posterior distributions"]) != 0)
 mcmcChains = (int(vars["mcmc chains"]) != 0)
 deviance = (int(vars["deviance"]) != 0)
 posteriorPredictors = (int(vars["posterior predictors"]) != 0)
-posteriorPredictorsSamples = int(vars["posterior predictor samples"])  
+posteriorPredictorsSamples = int(vars["posterior predictor samples"])
 numCores = int(vars["cpu cores"])
 int_lower = int(vars["limits of integration lower"])
 int_upper = int(vars["limits of integration upper"])
@@ -68,13 +61,6 @@ from kabuki import Hierarchical
 #				<< _dataFile
 #				<< _analysisDir
 #				<< _analysisDescriptionPath;
-				
-print sys.argv	
-print len(sys.argv)
-print(sys.argv[0])
-print(sys.argv[1])
-print(sys.argv[2])
-print(sys.argv[3])
 
 print(dataFile)
 print(path_analysisDir)
@@ -87,48 +73,48 @@ actual_cores = multiprocessing.cpu_count()
 if numCores < 1:
         print('Warning: Inputting 0 CPU core is silly. BEESTs will use the default number of ' + str(actual_cores-1) + ' cores.')
         numCores = actual_cores -1
-        
+
 if samples < 1:
         #print "The total number of MCMC samples must be greater than zero."
-        sys.exit() 
+        sys.exit()
 
 if samples <= burnIn:
         #print "The total number of MCMC samples must be higher than the number of burn-in samples."
-        sys.exit() 
+        sys.exit()
 
 if thinning < 1:
         #print "The thinning factor must be higher than 0."
-        sys.exit() 
+        sys.exit()
 
 if  ((samples-burnIn)/thinning) < 1:
         #print "No MCMC samples will be retained. Increse the number of retained samples or decrese the thinning factor."
-        sys.exit() 
+        sys.exit()
 
 if posteriorPredictors == True:
         if (((samples-burnIn)/thinning)*numberOfChains) < posteriorPredictorsSamples:
         #print "The number of posterior predictive samples cannot be higher than the number of retained MCMC samples."
                 sys.exit()
-                
+
 if (int_lower >= int_upper):
-        sys.exit() 
-  
+        sys.exit()
+
 def check_par(pars):
         for par in pars:
                 if  (float(vars[par+" upper"]) <= float(vars[par+" lower"])):
-                        sys.exit()   
+                        sys.exit()
                 if  ((float(vars[par+" start"]) < float(vars[par+" lower"])) or (float(vars[par+" start"]) > float(vars[par+" upper"]))):
-                        sys.exit()  
+                        sys.exit()
 if  (version):
         print('BEESTS will fit the standard model.')
-        check_par(pars=("go mu", "go sigma", "go tau", "stop mu", "stop sigma", "stop tau", "go mu sd", 
-              "go sigma sd", "go tau sd", "stop mu sd", "stop sigma sd", "stop tau sd"))   
+        check_par(pars=("go mu", "go sigma", "go tau", "stop mu", "stop sigma", "stop tau", "go mu sd",
+              "go sigma sd", "go tau sd", "stop mu sd", "stop sigma sd", "stop tau sd"))
 else:
-        print('BEESTS will fit the trigger failure model.')   
+        print('BEESTS will fit the trigger failure model.')
         if (ncol==4):
                 if (float(vars["stop pf lower"]) < 0 or float(vars["stop pf upper"]) > 1):
-                        sys.exit() 
-        check_par(pars=("go mu", "go sigma", "go tau", "go shift", "stop mu", "stop sigma", "stop tau", "stop shift", "stop pf", "go mu sd", 
-              "go sigma sd", "go tau sd", "go shift sd", "stop mu sd", "stop sigma sd", "stop tau sd", "stop shift sd", "stop pf sd"))   
+                        sys.exit()
+        check_par(pars=("go mu", "go sigma", "go tau", "go shift", "stop mu", "stop sigma", "stop tau", "stop shift", "stop pf", "go mu sd",
+              "go sigma sd", "go tau sd", "go shift sd", "stop mu sd", "stop sigma sd", "stop tau sd", "stop shift sd", "stop pf sd"))
 
 #guess if rt data is in msec vs. sec
 rts = data["rt"]
@@ -163,7 +149,7 @@ if __name__ == "__main__":
                       numCores = actual_cores-1
         else:
                 print('Your system has ' + str(actual_cores) + ' cores. BEESTs will use ' + str(numCores) + ' core(s)')
-        
+
         n_runs = math.ceil((numberOfChains/numCores))
         n_runs = numpy.array(n_runs).astype('int')
         num_remote = numberOfChains-n_runs
@@ -172,7 +158,7 @@ if __name__ == "__main__":
         #print n_runs
         #print num_remote
         #print n_pool
-        
+
         if num_remote>0:
                 remote_model = []
                 pool = multiprocessing.Pool(processes=n_pool)
@@ -214,16 +200,16 @@ if __name__ == "__main__":
                         print((key, Rhat[key]))
 
         name_dataFile = dataFile.replace(".csv","")
-      
+
         for i in range(numberOfChains):
                 save_csv(get_traces(models[i]), 'parameters'+str(i+1)+'.csv', sep = ';')
 
-        print "Posterior samples are saved to file."    
+        print "Posterior samples are saved to file."
 
         if deviance == True:
                 for i in range(numberOfChains):
                         dev = models[i].mc.db.trace('deviance')()
-                        numpy.savetxt('deviance'+str(i+1)+'.csv', dev, delimiter=";") 
+                        numpy.savetxt('deviance'+str(i+1)+'.csv', dev, delimiter=";")
                 print "Deviance values are saved to file"
 #        if ss.is_group_model:
 #          print "DIC: %f" % ss.mc.dic

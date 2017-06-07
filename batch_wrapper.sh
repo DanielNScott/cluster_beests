@@ -1,13 +1,14 @@
 #!/bin/bash
 
+###########################
+## Slurm Config
+###########################
 #SBATCH -J beests-wtf
 #SBATCH -t 02:00:00
 #SBATCH -c 4
+###########################
 
+# Run the batch job.
 dir=${1}
-data_file=${1}${2}
-analysis_file=${1}'analysis.txt'
-output_file=${3}
-
-srun run_wrapper.sh ${data_file} ${dir} ${analysis_file} 1>${dir}/${output_file} 2>>${dir}/${output_file}
+srun run_wrapper.sh ${dir} 1>${dir}/beests.out 2>>${dir}/beests.err
 
