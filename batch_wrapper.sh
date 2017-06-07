@@ -10,5 +10,5 @@
 
 # Run the batch job.
 dir=${1}
-srun run_wrapper.sh ${dir} 1>${dir}/beests.out 2>>${dir}/beests.err
+srun run.sh ${dir} 1>${dir}/beests.out 2>>${dir}/beests.err
 
