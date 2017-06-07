@@ -9,6 +9,8 @@ import pymc as pm
 from copy import copy
 from scipy.stats import norm
 from scipy.integrate import quad
+import pandas as pd
+#import ipdb
 try:
     from IPython.Debugger import Tracer; debug_here = Tracer()
 except:
@@ -113,17 +115,17 @@ pf_sd_start = float(vars["stop pf sd start"])
 iinteg_lower = int(vars["limits of integration lower"])
 iinteg_upper = int(vars["limits of integration upper"])
 
-def cython_Go(value, imu_go, isigma_go, itau_go, ishift_go):
+def cython_Go(value, ips, imu_go, isigma_go, itau_go, ishift_go):
     """Ex-Gaussian log-likelihood of GoRTs"""
-    return stop_likelihoods_wtf.Go(value, imu_go, isigma_go, itau_go, ishift_go)
+    return stop_likelihoods_wtf.Go(value, ips, imu_go, isigma_go, itau_go, ishift_go)
 
-def cython_SRRT(value, issd, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf):
+def cython_SRRT(value, ips, issd, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf):
     """Censored ExGaussian log-likelihood of SRRTs"""
-    return stop_likelihoods_wtf.SRRT(value, issd, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf)
+    return stop_likelihoods_wtf.SRRT(value, ips, issd, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf)
 
-def cython_Inhibitions(value, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf):
+def cython_Inhibitions(value, ips, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf):
     """Censored ExGaussian log-likelihood of inhibitions"""
-    return stop_likelihoods_wtf.Inhibitions(value, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf)
+    return stop_likelihoods_wtf.Inhibitions(value, ips, imu_go, isigma_go, itau_go, ishift_go, imu_stop, isigma_stop, itau_stop, ishift_stop, ip_tf)
 
 Go_like = pm.stochastic_from_dist(name="Ex-Gauss GoRT",
                                   logp=cython_Go,
@@ -141,27 +143,81 @@ Inhibitions_like = pm.stochastic_from_dist(name="CensoredEx-Gauss Inhibittions",
                                   mv=False)
 class KnodeGo(Knode):
     def create_node(self, node_name, kwargs, data):
-        new_data = data[data['ss_presented'] == 0]
-        kwargs['value'] = new_data['rt']
+        msk_ss          = data['ss_presented'] == 0
+        kwargs['value'] = data[msk_ss]['rt']
+        
+        ps_bools      = abs(np.roll(data['ss_presented'],1) - 1)
+        ps_bools[0]   = 0.
+        ps_bools      = np.array(ps_bools, dtype=np.float)
+        kwargs['ips'] = ps_bools[np.where(msk_ss)]
+
+        #print('KnodeGo:') 
+        #print(kwargs['ips'].shape  , type(kwargs['ips']))
+        #print(kwargs['value'].shape, type(kwargs['value']))
         return self.pymc_node(name=node_name, **kwargs)
 
 class KnodeSRRT(Knode):
     def create_node(self, node_name, kwargs, data):
-        new_data = data[(data['ss_presented'] == 1) & (data['inhibited'] == 0)]
-        kwargs['value'] = new_data['rt']
-        kwargs['issd'] = np.array(new_data['ssd'], dtype=np.int32)
+        msk_ss          = data['ss_presented'] == 1
+        msk_respond     = data['inhibited'] == 0
+        relevant_data   = data[(msk_ss) & (msk_respond)]
+
+        kwargs['value'] = relevant_data['rt']
+        kwargs['issd']  = np.array(relevant_data['ssd'], dtype=np.int32)
+        
+        ps_bools        = np.roll(data['ss_presented'],1)
+        ps_bools[0]     = 0.
+        kwargs['ips']   = np.array(ps_bools[np.where((msk_ss) & (msk_respond))], dtype=np.float)
+
+        #print('KnodeSRRT:') 
+        #print(kwargs['ips'].shape  , type(kwargs['ips']))
+        #print(kwargs['value'].shape, type(kwargs['value']))
+        #print(kwargs['issd'].shape , type(['issd']))
         return self.pymc_node(name=node_name, **kwargs)
 
 class KnodeInhibitions(Knode):
     def create_node(self, node_name, kwargs, data):
-        new_data = data[(data['ss_presented'] == 1) & (data['inhibited'] == 1)]
-        uniq_ssds = np.unique(new_data['ssd'])
+        msk_ss          = data['ss_presented'] == 1
+        msk_respond     = data['inhibited'] == 1
+        relevant_data   = data[(msk_ss) & (msk_respond)]
+
+        ps_bools    = np.roll(data['ss_presented'],1)
+        ps_bools[0] = 0.
+        ps_bools    = np.array(ps_bools[np.where((msk_ss) & (msk_respond))], dtype=np.float)
+        
+        uniq_ssds = np.unique(relevant_data['ssd'])
         ssd_inhib_trials = []
+        ips = []
         for uniq_ssd in uniq_ssds:
-            ssd_inhib_trials.append((uniq_ssd, len(new_data[new_data['ssd'] == uniq_ssd]), iinteg_lower, iinteg_upper))
+            this_ssd_msk = relevant_data['ssd'] == uniq_ssd
+
+            n_not_ps = len(relevant_data[this_ssd_msk & (ps_bools == 0)])
+            n_ps     = len(relevant_data[this_ssd_msk & (ps_bools == 1)])
+
+            if n_not_ps > 0:
+                ssd_inhib_trials.append((uniq_ssd, n_not_ps))
+                ips.append(0)
+
+            if n_ps > 0:
+                ssd_inhib_trials.append((uniq_ssd, n_ps    ))
+                ips.append(1)   
+
         ssd_inhib_trials = np.array(ssd_inhib_trials, dtype=np.int32)
-        #print(ssd_inhib_trials)        
+        ips = np.array(ips, dtype=np.float)
+ 
         kwargs['value'] = ssd_inhib_trials
+        kwargs['ips']   = ips
+        #kwargs['ips']   = np.array([ssd_inhib_trials.shape[0],1], dtype=np.float)
+        #kwargs['ips'][1:len(uniq_ssds*2):2] = 1
+
+        #kwargs['ips']   = ps_bools
+        #kwargs['value'] = np.array(relevant_data['ssd'], dtype=np.int32)
+
+        print('KnodeInhibitions:')
+        print('ips:'  , kwargs['ips'].shape  )
+        print('value:', kwargs['value'].shape)
+        print(kwargs['value'])
+        print(kwargs['ips'])
         return self.pymc_node(name=node_name, **kwargs)
 
 class StopSignal(Hierarchical):

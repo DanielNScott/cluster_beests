@@ -16,5 +16,10 @@ export LD_LIBRARY_PATH="/gpfs_home/dscott3/lib:"$LD_LIBRARY_PATH
 
 ### Actually function: MCMC SST Data ###
 python run.py ${1} ${2} ${3}
-Rscript run.R ${1} ${2} ${3}
 
+if [ $? -ne 0 ]
+then
+	exit
+fi
+
+Rscript run.R ${1} ${2} ${3}

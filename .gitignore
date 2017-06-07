@@ -5,3 +5,5 @@ build/
 dist/
 docs/build
 src/*.c
+*.swp
+.DS_Store

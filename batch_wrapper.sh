@@ -9,5 +9,5 @@ data_file=${1}${2}
 analysis_file=${1}'analysis.txt'
 output_file=${3}
 
-srun run_wrapper.sh ${data_file} ${dir} ${analysis_file} 1>>${dir}/${output_file} 2>>${dir}/${output_file}
+srun run_wrapper.sh ${data_file} ${dir} ${analysis_file} 1>${dir}/${output_file} 2>>${dir}/${output_file}
 
