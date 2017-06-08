@@ -5,14 +5,14 @@ import cStringIO
 
 sys.path.insert(0, '/gpfs_home/dscott3/code/beests-hack-versioned/stopsignal/stopsignal_wtf') # location of src
 
-if (len(sys.argv) != 1):
+if (len(sys.argv) != 2):
 	print("Please provide exactly one argument, the path to the analysis directory.")
 	print("This path must contain 'sst_data.csv' and 'analysis.txt', the BEESTS data and config files.")
 	exit(1)
 
-path_analysisDir = sys.argv[0]
-dataFile = sys.argv[0] + 'sst_data.csv'
-path__analysisDescription = sys.argv[0] + 'analysis.txt'
+path_analysisDir = sys.argv[1]
+dataFile = sys.argv[1] + 'sst_data.csv'
+path__analysisDescription = sys.argv[1] + 'analysis.txt'
 
 #make dict for input arguments
 vars = dict()
@@ -110,11 +110,11 @@ if  (version):
               "go sigma sd", "go tau sd", "stop mu sd", "stop sigma sd", "stop tau sd"))
 else:
         print('BEESTS will fit the trigger failure model.')
-        if (ncol==4):
-                if (float(vars["stop pf lower"]) < 0 or float(vars["stop pf upper"]) > 1):
-                        sys.exit()
-        check_par(pars=("go mu", "go sigma", "go tau", "go shift", "stop mu", "stop sigma", "stop tau", "stop shift", "stop pf", "go mu sd",
-              "go sigma sd", "go tau sd", "go shift sd", "stop mu sd", "stop sigma sd", "stop tau sd", "stop shift sd", "stop pf sd"))
+        #if (ncol==4):
+        #        if (float(vars["stop pf lower"]) < 0 or float(vars["stop pf upper"]) > 1):
+        #                sys.exit()
+        #check_par(pars=("go mu", "go sigma", "go tau", "go shift", "stop mu", "stop sigma", "stop tau", "stop shift", "stop pf", "go mu sd",
+        #      "go sigma sd", "go tau sd", "go shift sd", "stop mu sd", "stop sigma sd", "stop tau sd", "stop shift sd", "stop pf sd"))
 
 #guess if rt data is in msec vs. sec
 rts = data["rt"]

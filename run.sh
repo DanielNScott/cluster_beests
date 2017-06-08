@@ -20,7 +20,7 @@ export LD_LIBRARY_PATH="/gpfs_home/dscott3/lib:"$LD_LIBRARY_PATH
 #echo ${1}
 
 ### Actually function: MCMC SST Data ###
-python run.py ${1}
+python beests_model.py ${1}
 
 if [ $? -ne 0 ]
 then
@@ -31,4 +31,4 @@ fi
 
 echo 'BEESTS exited with "success" status.'
 echo 'Running R post processing.'
-Rscript run.R ${1}
+Rscript post_process.R ${1}
