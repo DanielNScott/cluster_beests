@@ -73,23 +73,22 @@ read_prep = function(dir, n_chains, n_params) {
 # Computes summary stats for each parameter (by participant, collapsed over chains) and save output to csv.
 summary_stats <- function(pars, params, n_subj, subj_idx = NULL){
 
-   # In both subject and group cases, we need a row for each param
-   summary_rows <- params
+  # In both subject and group cases, we need a row for each param
+  summary_rows <- params
 
-   # In subject level data we also want some exta summary stuff
-   if (!is.null(subj_idx)) {summary_rows <- c(params, "mean go", "sd go", "mean SSRT", "sd SSRT")}
+  # In subject level data we also want some exta summary stuff
+  if (!is.null(subj_idx)) {summary_rows <- c(params, "mean go", "sd go", "mean SSRT", "sd SSRT")}
 
-   # Create the matrix to hold summary statistics:
-   prctiles     <- c("2.5%", "25%", "50%", "75%", "97.5%")
-   summary_cols <- c("Mean", "Sd", prctiles)
+  # Create the matrix to hold summary statistics:
+  prctiles     <- c("2.5%", "25%", "50%", "75%", "97.5%")
+  summary_cols <- c("Mean", "Sd", prctiles)
 
-   summary = matrix(NA,length(summary_rows), length(summary_cols))
-   colnames(summary) = summary_cols
-	rownames(summary) = summary_rows
+  summary = matrix(NA,length(summary_rows), length(summary_cols))
+  colnames(summary) = summary_cols
+  rownames(summary) = summary_rows
 
-
-   if (!is.null(subj_idx)) {
-      # Extract lists of param names by type:
+  if (!is.null(subj_idx)) {
+    # Extract lists of param names by type:
    	mu_go_subj      = grep(glob2rx("mu_go*"   ), params, value=TRUE)
    	sigma_go_subj   = grep(glob2rx("sigma_go*"), params, value=TRUE)
    	tau_go_subj     = grep(glob2rx("tau_go*"  ), params, value=TRUE)
@@ -98,75 +97,50 @@ summary_stats <- function(pars, params, n_subj, subj_idx = NULL){
    	sigma_stop_subj = grep(glob2rx("sigma_stop*"), params, value=TRUE)
    	tau_stop_subj   = grep(glob2rx("tau_stop*"  ), params, value=TRUE)
 
-   	pf_stop_subj       = grep(glob2rx("pf_stop*"), params, value=TRUE)
+    meanGo   =      as.vector(pars$traces[,mu_go_subj,])        + as.vector(pars$traces[,tau_go_subj,])
+    sdGo     = sqrt(as.vector(pars$traces[,sigma_go_subj,])^2   + as.vector(pars$traces[,tau_go_subj,])^2)
+    meanSRRT =      as.vector(pars$traces[,mu_stop_subj ,])     + as.vector(pars$traces[,tau_stop_subj ,])
+    sdSRRT   = sqrt(as.vector(pars$traces[,sigma_stop_subj,])^2 + as.vector(pars$traces[,tau_stop_subj ,])^2)
 
-      meanGo   =      as.vector(pars$traces[,mu_go_subj,])        + as.vector(pars$traces[,tau_go_subj,])
-      sdGo     = sqrt(as.vector(pars$traces[,sigma_go_subj,])^2   + as.vector(pars$traces[,tau_go_subj,])^2)
-      meanSRRT =      as.vector(pars$traces[,mu_stop_subj ,])     + as.vector(pars$traces[,tau_stop_subj ,])
-      sdSRRT   = sqrt(as.vector(pars$traces[,sigma_stop_subj,])^2 + as.vector(pars$traces[,tau_stop_subj ,])^2)
+    summary["mean go",1]   = round(mean(meanGo),4)
+    summary["mean go",2]   = round(sd(meanGo),4)
+    summary["mean go",3:7] = round(quantile(meanGo),4)
 
-      summary["mean go",1]   = round(mean(meanGo),4)
-      summary["mean go",2]   = round(sd(meanGo),4)
-      summary["mean go",3:7] = round(quantile(meanGo),4)
+    summary["sd go",1] = round(mean(sdGo),4)
+    summary["sd go",2] = round(sd(sdGo),4)
+    summary["sd go",3:7] = round(quantile(sdGo),4)
 
-      summary["sd go",1] = round(mean(sdGo),4)
-      summary["sd go",2] = round(sd(sdGo),4)
-      summary["sd go",3:7] = round(quantile(sdGo),4)
+    summary["mean SSRT",1] = round(mean(meanSRRT),4)
+    summary["mean SSRT",2] = round(sd(meanSRRT),4)
+    summary["mean SSRT",3:7] = round(quantile(meanSRRT),4)
 
-      summary["mean SSRT",1] = round(mean(meanSRRT),4)
-      summary["mean SSRT",2] = round(sd(meanSRRT),4)
-      summary["mean SSRT",3:7] = round(quantile(meanSRRT),4)
+    summary["sd SSRT",1] = round(mean(sdSRRT),4)
+    summary["sd SSRT",2] = round(sd(sdSRRT),4)
+    summary["sd SSRT",3:7] = round(quantile(sdSRRT),4)
+  }
+  pf_stop_subj = grep(glob2rx("pf_stop*"), params, value=TRUE)
+  for(row in 1:length(params)){
+    col <- params[[row]]
 
-      summary["sd SSRT",1] = round(mean(sdSRRT),4)
-      summary["sd SSRT",2] = round(sd(sdSRRT),4)
-      summary["sd SSRT",3:7] = round(quantile(sdSRRT),4)
-
-      # Get across subject parameter means, standard deviations, and quantiles:
-      for(par in params){
-         browser()
-         if (par == pf_stop_subj) {val <- pnorm(pars$traces[,pf_stop_subj,])} else {val <- pars$traces[,par,]}
-
-         # Summary statistics
-         summary[par,1  ] = round(    mean(as.vector(val)), 4)
-         summary[par,2  ] = round(      sd(as.vector(val)), 4)
-         summary[par,3:7] = round(quantile(as.vector(val), prob = c(0.025,0.25,0.5,0.75,0.975)), 4)
-      }
-
-     # Write table
-      table = tableGrob(summary)
-      h <- grobHeight(table)
-      w <- grobWidth(table)
-      title <- textGrob(paste("Summary statistics Subject",subject_idx,sep=" "), y=unit(0.5,"npc") + 0.5*h,
-                     vjust=0, gp=gpar(fontsize=20))
-      gt <- gTree(children=gList(table, title))
-      grid.newpage()
-      grid.draw(gt)
-   }
-   else {
-      # Group data:
-      for(row in 1:length(params)){
-         col <- params[[row]]
-         summary[row,1]   <- round(mean(as.vector(pars$traces[,col,])),4)
-         summary[row,2]   <- round(sd(as.vector(pars$traces[,col,])),4)
-         summary[row,3:7] <- round(quantile(as.vector(pars$traces[,col,]), prob = c(0.025,0.25,0.5,0.75,0.975)),4)
-      }
-      browser()
-      # Write table
-      table = tableGrob(summary)
-      h <- grobHeight(table)
-      w <- grobWidth(table)
-      title <- textGrob("Summary statistics group level parameters", y=unit(0.5,"npc") + 0.5*h,
-                     vjust=0, gp=gpar(fontsize=20))
-      gt <- gTree(children=gList(table, title))
-      grid.newpage()
-      grid.draw(gt)
-   }
+    if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(pars$traces[,col,])} else {val <- pars$traces[,col,]}
+    summary[row,1]   <- round(    mean(as.vector(val)),4)
+    summary[row,2]   <- round(      sd(as.vector(val)),4)
+    summary[row,3:7] <- round(quantile(as.vector(val), prob = c(0.025,0.25,0.5,0.75,0.975)),4)
+  }
+  # Write table
+  table = tableGrob(summary)
+  h <- grobHeight(table)
+  w <- grobWidth(table)
+  title <- textGrob("Summary statistics group level parameters", y=unit(0.5,"npc") + 0.5*h, vjust=0, gp=gpar(fontsize=20))
+  gt <- gTree(children=gList(table, title))
+  grid.newpage()
+  grid.draw(gt)
 }
 
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------Plots posteriors for individual participants for the individual model
 plot_individual_posteriors = function(pars,params,priors){
-
+  browser()
   prior_den = list(mu_go = dunif(priors$mu_go[1],priors$mu_go[1],priors$mu_go[2]),
                     mu_stop = dunif(priors$mu_stop[1],priors$mu_stop[1],priors$mu_stop[2]),
                     sigma_go = dunif(priors$sigma_go[1],priors$sigma_go[1],priors$sigma_go[2]),
@@ -187,7 +161,7 @@ plot_individual_posteriors = function(pars,params,priors){
 
   plot(density(pars$traces[,"pf_stop",]),xlim = c(priors$pf_stop[1],priors$pf_stop[2]), main = "Posterior pf_stop",xlab="Probability",ylab = "Density")
   lines(c(priors$pf_stop[1],priors$pf_stop[2]),c(prior_den[names(prior_den)=="pf_stop"],prior_den[names(prior_den)=="pf_stop"]),lty=2)
- }
+}
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------Plots posteriors for individual participants for the hierarchical model
 plot_individual_posteriors_for_hier = function(pars,params,subject_idx){
@@ -218,7 +192,7 @@ plot_individual_posterior_means = function(pars,priors){
     params = c(paste("mu_go_subj.",n,sep=""),paste("mu_stop_subj.",n,sep=""),
                         paste("sigma_go_subj.",n,sep=""),paste("sigma_stop_subj.",n,sep=""),
                         paste("tau_go_subj.",n,sep=""),paste("tau_stop_subj.",n,sep=""),
-                        paste("pf_stop_subjpt.",n,sep=""))
+                        paste("pf_stop_subj.",n,sep=""))
 
     for(p in 1:7){
         post_means_ind[n,p] = mean(pars$traces[,params[p],])
@@ -242,6 +216,7 @@ plot_group_posteriors = function(pars,priors){
 library(msm)
 p_lims_prior = seq(priors$pf_stop[1],priors$pf_stop[2],0.1)
 
+  browser()
   prior_den_group = list(mu_go = dunif(priors$mu_go[1],priors$mu_go[1],priors$mu_go[2]),
                     mu_stop = dunif(priors$mu_stop[1],priors$mu_stop[1],priors$mu_stop[2]),
                     sigma_go = dunif(priors$sigma_go[1],priors$sigma_go[1],priors$sigma_go[2]),
@@ -290,7 +265,7 @@ plot_posteriors = function(pars,all_pars=T,priors){
 				param_name = c(paste("mu_go_subj.",n,sep=""),paste("mu_stop_subj.",n,sep=""),
                         paste("sigma_go_subj.",n,sep=""),paste("sigma_stop_subj.",n,sep=""),
                         paste("tau_go_subj.",n,sep=""),paste("tau_stop_subj.",n,sep=""),
-                        paste("pf_stop_subjpt.",n,sep=""))
+                        paste("pf_stop_subj.",n,sep=""))
 
 				plot_individual_posteriors_for_hier(pars, params = param_name, subject_idx = n)
 			}
@@ -409,7 +384,7 @@ plot_chains = function(pars,all_pars=T,priors){
 				param_name = c(paste("mu_go_subj.",n,sep=""),paste("mu_stop_subj.",n,sep=""),
                         paste("sigma_go_subj.",n,sep=""),paste("sigma_stop_subj.",n,sep=""),
                         paste("tau_go_subj.",n,sep=""),paste("tau_stop_subj.",n,sep=""),
-                        paste("pf_stop_subjpt.",n,sep=""))
+                        paste("pf_stop_subj.",n,sep=""))
 
 				plot_individual_chains_probit(pars, params = param_name, subject_idx = n)
 			}
@@ -427,7 +402,7 @@ sample_joint_posterior = function(pars,n_post_samples,subject_idx = NULL){
 	} else {
 		params = c(paste("mu_go_subj.",subject_idx,sep=""),paste("mu_stop_subj.",subject_idx,sep=""),
 				paste("sigma_go_subj.",subject_idx,sep=""),paste("sigma_stop_subj.",subject_idx,sep=""),
-				paste("tau_go_subj.",subject_idx,sep=""),paste("tau_stop_subj.",subject_idx,sep=""),paste("pf_stop_subjpt.",subject_idx,sep=""))
+				paste("tau_go_subj.",subject_idx,sep=""),paste("tau_stop_subj.",subject_idx,sep=""),paste("pf_stop_subj.",subject_idx,sep=""))
 	}
 
 	par_vectors = array(NA,dim = c(n_post_samples,7),list(NULL,params))
@@ -545,7 +520,7 @@ generate_posterior_predictions_srrt = function(delays_all,n_delays_all,n_observe
 	if(n_subj==1){
 		prob = par_vectors[,"pf_stop"]
 	} else {
-    prob = pnorm(par_vectors[,paste("pf_stop_subjpt.",subject_idx,sep="")])
+    prob = pnorm(par_vectors[,paste("pf_stop_subj.",subject_idx,sep="")])
   }
   #print(prob)
   #print(n_delays_all)

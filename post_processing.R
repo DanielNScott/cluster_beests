@@ -55,6 +55,8 @@ flog.info('Predictors   : %s', posterior.predictors)
 flog.info('Pred. Samples: %s', posterior.predictors.samples)
 flog.info('Num Cores    : %s', num.cores)
 
+
+### ------- Set up params to look at -------- ###
 # Specify the pieces defining a set of variables to look at:
 param_bases <- list('mu_', 'sigma_', 'tau_', 'shift_')
 param_dists <- list('go', 'stop')
@@ -79,13 +81,13 @@ for (term in terms_wlims) {
 
 # Pack prior bounds into a list of lists
 priors <- list()
-for (name in param_names) {
+for (name in param_wsds) {
   lims <- as.vector(outer(name, param_lims , function(x,y) paste(x,y,sep='')))
   priors[[name]] <- c(get(lims[1]), get(lims[2]))
 }
 
-#priors <- list(p_tf = c(pf_lower,pf_upper,pf_mean,pf_sd), p_tf_var = c(pf_sd_lower,pf_sd_upper))
 
+### ------------- Some Misc Stuff ------------- ###
 check_silly_things(samples, burn.in, thinning, number.of.chains, posterior.predictor.samples, int_lower, int_upper, priors)
 
 # Open pdf file to save output
@@ -93,6 +95,10 @@ pdf(paste(analy_dir, "/output.pdf", sep=''), height=11, width=8.5)
 
 # Get MCMC output.
 mcmc.samples <- read_prep(dir = analy_dir, n_chains = number.of.chains, n_params = length(param_names))
+
+
+### --------- Get Summary Statistics ---------- ###
+print('Calculating summary statistics...')
 
 # Group summary statistics
 flog.info('Calculating summary stats for group')
@@ -102,19 +108,23 @@ summary_stats(pars = mcmc.samples, params = param_names, n_subj = mcmc.samples$n
 for (n in 1:mcmc.samples$n_subject){
   flog.info('Calculating summary stats for subject %s.', n)
   subj_param_names <- paste(param_names, '_subj.', n, sep='')
-  summary_stats(pars = mcmc.samples, params = subj_param_names, subj_idx = n)
+  summary_stats(pars = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
 }
-print("Summary statistics are saved to file.")
 
+
+### ------------- Get posteriors --------------- ###
+print('Calculating posterior distributions...')
 plot_posteriors(pars = mcmc.samples,all_pars=estimates.for.all, priors = priors)
-print("Posterior distributions are saved to file.")
 
+
+### ------------- Plot MCMC Chains ------------- ###
+print("Plotting MCMC chains...")
 plot_chains(pars = mcmc.samples,all_pars=estimates.for.all, priors = priors)
-print("MCMC chains are saved to file.")
 
+
+### -------- Posterior Pred. Checks ------------ ###
 print("Running posterior predictive model checks. This might take a while...")
 posterior_predictions_computation(pars = mcmc.samples,n_post_samples = posterior.predictors.samples,data=data)
-print("Results of posterior predictive model checks are saved to file.")
 
 
 cl <- dev.off()
