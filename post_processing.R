@@ -108,23 +108,23 @@ summary_stats(pars = mcmc.samples, params = param_names, n_subj = mcmc.samples$n
 for (n in 1:mcmc.samples$n_subject){
   flog.info('Calculating summary stats for subject %s.', n)
   subj_param_names <- paste(param_names, '_subj.', n, sep='')
-  summary_stats(pars = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
+#  summary_stats(pars = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
 }
 
 
 ### ------------- Get posteriors --------------- ###
 print('Calculating posterior distributions...')
-plot_posteriors(pars = mcmc.samples,all_pars=estimates.for.all, priors = priors)
+plot_posteriors(pars = mcmc.samples, priors = priors)
 
 
 ### ------------- Plot MCMC Chains ------------- ###
 print("Plotting MCMC chains...")
-plot_chains(pars = mcmc.samples,all_pars=estimates.for.all, priors = priors)
+plot_chains(pars = mcmc.samples, priors = priors)
 
 
 ### -------- Posterior Pred. Checks ------------ ###
 print("Running posterior predictive model checks. This might take a while...")
-posterior_predictions_computation(pars = mcmc.samples,n_post_samples = posterior.predictors.samples,data=data)
+posterior_predictions_computation(pars = mcmc.samples, n_post_samples = posterior.predictors.samples, data=data)
 
 
 cl <- dev.off()
