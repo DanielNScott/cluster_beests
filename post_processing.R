@@ -9,6 +9,7 @@ library(futile.logger)
 
 # Load most of the helper functions
 source("post_processing_wtf_aux.R")
+source("posterior_predictive_checks.R")
 
 # Read Arguments:
 args       <- commandArgs()
@@ -86,6 +87,9 @@ for (name in param_wsds) {
   priors[[name]] <- c(get(lims[1]), get(lims[2]))
 }
 
+# More exceptions...
+priors$pf_stop[3:4] <- c(as.numeric(as.vector(vars[vars[,1] == 'pf stop mean', 2])), as.numeric(as.vector(vars[vars[,1] == 'pf stop sd', 2])))
+
 
 ### ------------- Some Misc Stuff ------------- ###
 check_silly_things(samples, burn.in, thinning, number.of.chains, posterior.predictor.samples, int_lower, int_upper, priors)
@@ -108,23 +112,18 @@ summary_stats(pars = mcmc.samples, params = param_names, n_subj = mcmc.samples$n
 for (n in 1:mcmc.samples$n_subject){
   flog.info('Calculating summary stats for subject %s.', n)
   subj_param_names <- paste(param_names, '_subj.', n, sep='')
-#  summary_stats(pars = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
+  summary_stats(pars = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
 }
 
 
 ### ------------- Get posteriors --------------- ###
 print('Calculating posterior distributions...')
-plot_posteriors(pars = mcmc.samples, priors = priors)
-
-
-### ------------- Plot MCMC Chains ------------- ###
-print("Plotting MCMC chains...")
-plot_chains(pars = mcmc.samples, priors = priors)
+plot_posteriors_wrapper(pars = mcmc.samples, priors = priors)
 
 
 ### -------- Posterior Pred. Checks ------------ ###
 print("Running posterior predictive model checks. This might take a while...")
-posterior_predictions_computation(pars = mcmc.samples, n_post_samples = posterior.predictors.samples, data=data)
+posterior_predictions(pars = mcmc.samples, n_post_samples = posterior.predictors.samples, data=data, n_subj = mcmc.samples$n_subject)
 
 
 cl <- dev.off()
