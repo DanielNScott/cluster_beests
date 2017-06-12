@@ -4,6 +4,8 @@
 # Original Authors: Matzke et al
 # Substantial Update: Daniel Scott
 #
+library(grid)
+library(gtable)
 
 # ------------------------------------------------------------------------------ #
 # A function for checking silly input values
@@ -80,7 +82,7 @@ read_prep = function(dir, n_chains, n_params) {
 # ------------------------------------------------------------------------------ #
 # Computes summary stats for each parameter (by participant, collapsed over chains) and save output to csv.
 # ------------------------------------------------------------------------------ #
-summary_stats <- function(pars, params, n_subj, subj_idx = NULL){
+summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
 
   # In both subject and group cases, we need a row for each param
   summary_rows <- params
@@ -106,10 +108,10 @@ summary_stats <- function(pars, params, n_subj, subj_idx = NULL){
     sigma_stop_subj = grep(glob2rx("sigma_stop*"), params, value=TRUE)
     tau_stop_subj   = grep(glob2rx("tau_stop*"  ), params, value=TRUE)
 
-    meanGo   =      as.vector(pars$traces[,mu_go_subj,])        + as.vector(pars$traces[,tau_go_subj,])
-    sdGo     = sqrt(as.vector(pars$traces[,sigma_go_subj,])^2   + as.vector(pars$traces[,tau_go_subj,])^2)
-    meanSRRT =      as.vector(pars$traces[,mu_stop_subj ,])     + as.vector(pars$traces[,tau_stop_subj ,])
-    sdSRRT   = sqrt(as.vector(pars$traces[,sigma_stop_subj,])^2 + as.vector(pars$traces[,tau_stop_subj ,])^2)
+    meanGo   =      as.vector(mcmc_samples$traces[,mu_go_subj,])        + as.vector(mcmc_samples$traces[,tau_go_subj,])
+    sdGo     = sqrt(as.vector(mcmc_samples$traces[,sigma_go_subj,])^2   + as.vector(mcmc_samples$traces[,tau_go_subj,])^2)
+    meanSRRT =      as.vector(mcmc_samples$traces[,mu_stop_subj ,])     + as.vector(mcmc_samples$traces[,tau_stop_subj ,])
+    sdSRRT   = sqrt(as.vector(mcmc_samples$traces[,sigma_stop_subj,])^2 + as.vector(mcmc_samples$traces[,tau_stop_subj ,])^2)
 
     summary["mean go",1]   = round(mean(meanGo),4)
     summary["mean go",2]   = round(sd(meanGo),4)
@@ -131,55 +133,82 @@ summary_stats <- function(pars, params, n_subj, subj_idx = NULL){
   for(row in 1:length(params)){
     col <- params[[row]]
 
-    if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(pars$traces[,col,])} else {val <- pars$traces[,col,]}
+    if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(mcmc_samples$traces[,col,])} else {val <- mcmc_samples$traces[,col,]}
     summary[row,1]   <- round(    mean(as.vector(val)),4)
     summary[row,2]   <- round(      sd(as.vector(val)),4)
     summary[row,3:7] <- round(quantile(as.vector(val), prob = c(0.025,0.25,0.5,0.75,0.975)),4)
   }
+
   # Write table
-  table = tableGrob(summary)
-  h <- grobHeight(table)
-  w <- grobWidth(table)
-  title <- textGrob("Summary statistics group level parameters", y=unit(0.5,"npc") + 0.5*h, vjust=0, gp=gpar(fontsize=20))
-  gt <- gTree(children=gList(table, title))
+  table <- tableGrob(summary)
+
+  #title <- textGrob("Summary statistics group level parameters", y=unit(0.5,"npc") + 0.5*h, vjust=0, gp=gpar(fontsize=20))
+  if (is.null(subj_idx)) {level <- 'group'} else {level <- paste('subject ', toString(subj_idx), sep='')}
+  title <- paste("Summary statistics for", level, "parameters", sep = ' ')
+
+  title <- textGrob(title, gp=gpar(fontsize=20))
+
+  footnote <- textGrob("footnote", x=0, hjust=0, gp=gpar( fontface="italic"))
+
+  padding <- unit(1,"line")
+
+  table <- gtable_add_rows(table, heights = grobHeight(title) + padding, pos = 0)
+  table <- gtable_add_rows(table, heights = grobHeight(footnote)+ padding)
+
+  table <- gtable_add_grob(table, list(title, footnote), t=c(1, nrow(table)), l=c(1,2), r=ncol(table))
+
+  #gt <- gTree(children=gList(table, title))
   grid.newpage()
-  grid.draw(gt)
+  grid.draw(table)
 }
 # ------------------------------------------------------------------------------ #
 
 
-
 # ------------------------------------------------------------------------------ #
-# Posterior means...
+#
 # ------------------------------------------------------------------------------ #
-plot_individual_posterior_means = function(pars, priors){
+plot_posteriors_wrapper = function(mcmc_samples, priors){
 
-  n_subj <- pars$n_subject
-  a_big_enough_num <- 20
-  post_means_ind <- array(NA,dim=c(n_subj, a_big_enough_num))
+    regex <- paste('*_subj.', '*', sep='')
+    params_subj  <- grep(glob2rx(regex), colnames(mcmc_samples$traces), value=TRUE)
+    params_group <- setdiff(colnames(mcmc_samples$traces), c(params_subj,'X'))
 
-  # Get posterior means
-  for (subj_num in 1:n_subj) {
-    regex <- paste('*_subj.', toString(subj_num), '*', sep='')
-    params = grep(glob2rx(regex), colnames(pars$traces), value=TRUE)
+  if (mcmc_samples$n_subject==1) {
+    # Individual posteriors
+    # 'params_group' is used because there are no *_subj.[num] suffixes in non
+    # hierarchical model.
+    flog.info('Plotting posteriors')
+    plot_posteriors(mcmc_samples, priors, params_group, plot_priors = TRUE)
 
-    n_params <- length(params)
-    for(index in 1:n_params){
-        post_means_ind[subj_num, index] = mean(pars$traces[,params[index],])
-    }
+    flog.info('Plotting chains')
+    chains <- mcmc_samples$traces[,params_group,]
+    plot_chains(chains, priors, params_group, probit = FALSE)
   }
-  post_means_ind <- post_means_ind[, 1:n_params]
-  colnames(post_means_ind) = params
+  else {
+    # Group posteriors
+    flog.info('Plotting group posteriors')
+    plot_posteriors(mcmc_samples, priors, params_group, plot_priors = TRUE, title_addendum = 'for Group')
 
-  par(mar = c(8, 5, 6, 3) + 0.1)
-  layout(matrix(1:n_params, 4, byrow=T))
-  par(cex.main=1.4)
+    flog.info('Plotting chains for group params')
+    chains <- mcmc_samples$traces[,params_group,]
+    plot_chains(chains, priors, params_group, probit = FALSE)
 
-  for (index in 1:n_params){
-    data  <- post_means_ind[,index]
-    param <- params[index]
+    #flog.info('Plotting histogram of individual posterior means')
+    #plot_individual_posterior_means(chains, params_group)
+    #
 
-    hist(data, main=param, xlab=param)
+    for (subj_num in 1:mcmc_samples$n_subject){
+      # Individual posteriors without prior plotting
+      regex <- paste('*_subj.', toString(subj_num), '*', sep='')
+      params_subj_n  <- grep(glob2rx(regex), params_subj, value=TRUE)
+
+      flog.info('Plotting posteriors for subject %s', subj_num)
+      plot_posteriors(mcmc_samples, priors, params_subj_n, plot_priors = FALSE, title_addendum = c('for Subject ', toString(subj_num)))
+
+      flog.info('Plotting chains for subject %s', subj_num)
+      chains <- mcmc_samples$traces[,params_subj_n,]
+      plot_chains(chains, priors, params_subj_n, subject_idx = subj_num, probit = FALSE)
+    }
   }
 }
 # ------------------------------------------------------------------------------ #
@@ -188,17 +217,15 @@ plot_individual_posterior_means = function(pars, priors){
 # ------------------------------------------------------------------------------ #
 # Posteriors
 # ------------------------------------------------------------------------------ #
-plot_posteriors = function(pars, priors, plot_priors, title_addendum = ''){
+plot_posteriors = function(mcmc_samples, priors, params, plot_priors, title_addendum = ''){
   library(msm)
-
-  # Model contains SD terms, but output on parameter distribution uncertainties is variances.
-  prior_names     <- names(priors)
-  prior_names_var <- gsub("_sd", "_var", prior_names)
 
   if (plot_priors) {
     # Set prior densities
     prior_densities <- list()
-    for (name in prior_names) {
+    for (name in params) {
+      # Model contains SD terms, but output on parameter distribution uncertainties is variances.
+      name <- gsub("_var", "_sd", name)
       lower_lim <- priors[[name]][1]
       upper_lim <- priors[[name]][2]
 
@@ -211,33 +238,37 @@ plot_posteriors = function(pars, priors, plot_priors, title_addendum = ''){
     prior_densities$pf_stop = dtnorm(p_lims_prior, priors$pf_stop[3], priors$pf_stop[4], lower=priors$pf_stop[1], upper=priors$pf_stop[2])
   }
 
+  n_params <- length(params)
+  n_rows   <- ceiling(n_params/4)
   # Setup plotting
-  par(mar = c(4.5, 5, 2, 3) + 0.1) # group
+  #par(mar = c(6, 5, 6, 3) + 0.1) # group
   #par(mar = c(8, 5, 6, 3) + 0.1) # individual
-  layout(matrix(1:14,,2,byrow=T))
+  layout(matrix(1:(n_rows*4), n_rows, 4, byrow=T))
   par(cex.main=1.2)
 
   # Plot posteriors
-  for(par in prior_names_var){
+  for(par in params){
 
     if (par == 'pf_stop_var' | par == 'pf_stop') {next}
 
-    title   <- paste("Posterior", par, title_addendum, sep=" ")
-    xlimits <- c(min(pars$traces[,par,])-30, max(pars$traces[,par,])+30)
+    #title   <- paste("Posterior", par, title_addendum, sep=" ")
+    x_lower <- min(mcmc_samples$traces[,par,])-30
+    x_upper <- max(mcmc_samples$traces[,par,])+30
+    xlimits <- c(x_lower, x_upper)
 
-    posterior <- density(pars$traces[,par,])
-    plot(posterior, xlim = xlimits, main = title, xlab=paste(par,"(ms)",sep=" "), ylab = "Density")
+    posterior <- density(mcmc_samples$traces[,par,])
+    plot(posterior, xlim = xlimits, main = par, xlab=paste(par,"(ms)",sep=" "), ylab = "Density")
 
     # We plot param priors for (individual & not hierarchical) or group get plotted
     if (plot_priors) {
       # These are mostly just uniform lines
-      curves_to_plot <- c(prior_densities[prior_names_var == par], prior_densities[prior_names_var == par])
-      lines(c(0, xlimits[2]), curves_to_plot , lty=2)
+      curves_to_plot <- c(prior_densities[params == par], prior_densities[params == par])
+      lines(c(x_lower, x_upper), curves_to_plot , lty=2)
     }
   }
 
-  #plot(density(pars$traces[,"pf_stop",]),xlim = c(priors$pf_stop[1], priors$pf_stop[2]), main = "Posterior pf_stop",xlab="pf_stop on probit scale",ylab = "Density")
-  #plot(density(pars$traces[,"pf_stop_sd",]),xlim = c(priors$pf_stop_sd[1],priors$pf_stop_sd[2]), main = "Posterior pf_stop_sd",xlab="pf_stop_sd on probit scale",ylab = "Density")
+  #plot(density(mcmc_samples$traces[,"pf_stop",]),xlim = c(priors$pf_stop[1], priors$pf_stop[2]), main = "Posterior pf_stop",xlab="pf_stop on probit scale",ylab = "Density")
+  #plot(density(mcmc_samples$traces[,"pf_stop_sd",]),xlim = c(priors$pf_stop_sd[1],priors$pf_stop_sd[2]), main = "Posterior pf_stop_sd",xlab="pf_stop_sd on probit scale",ylab = "Density")
 
   if (plot_priors) {
     # These are mostly just uniform lines
@@ -249,33 +280,34 @@ plot_posteriors = function(pars, priors, plot_priors, title_addendum = ''){
 
 
 # ------------------------------------------------------------------------------ #
-# Posteriors
+# Posterior means...
 # ------------------------------------------------------------------------------ #
-plot_posteriors_wrapper = function(pars, priors){
+plot_individual_posterior_means = function(chains, n_subj){
 
-  if (pars$n_subject==1) {
-    # Individual posteriors
-    plot_posteriors(pars, priors, plot_priors = TRUE)
-    #plot_chains(pars, priors, probit = FALSE)
-  }
-  else {
-    # Group posteriors
-    flog.info('Plotting group posteriors')
-    plot_posteriors(pars, priors, plot_priors = TRUE, title_addendum = 'for Group')
-    plot_individual_posterior_means(pars,priors)
+  a_big_enough_num <- 20
+  post_means_ind   <- array(NA,dim=c(n_subj, a_big_enough_num))
 
-    #plot_chains(pars, priors, probit = FALSE)
+  # Get posterior means
+  for (subj_num in 1:n_subj) {
+    regex <- paste('*_subj.', toString(subj_num), '*', sep='')
+    params = grep(glob2rx(regex), colnames(chains), value=TRUE)
 
-    for (n in 1:pars$n_subject){
-      # Individual posteriors without prior plotting
-
-      flog.info('Plotting group posteriors for subject %s', n)
-      param_names = paste(names(priors),n,sep="")
-      plot_posteriors(pars, priors, plot_priors = FALSE, title_addendum = c('for Subject ', toString(n)))
-
-      flog.info('Plotting chains for subject %s', n)
-      #plot_chains(pars, priors, subject_idx = n, probit = TRUE)
+    n_params <- length(params)
+    for(index in 1:n_params){
+        post_means_ind[subj_num, index] = mean(chains[,params[index],])
     }
+  }
+  post_means_ind <- post_means_ind[, 1:n_params]
+  colnames(post_means_ind) = gsub('_subj', params)
+
+  #par(mar = c(8, 5, 6, 3) + 0.1)
+  #layout(matrix(1:n_params, 4, byrow=T))
+  par(cex.main=1.4)
+
+  for (index in 1:n_params){
+    data  <- post_means_ind[,index]
+    param <- params[index]
+    hist(data, main=param, xlab=param)
   }
 }
 # ------------------------------------------------------------------------------ #
@@ -284,57 +316,59 @@ plot_posteriors_wrapper = function(pars, priors){
 # ------------------------------------------------------------------------------ #
 # MCMC Chains
 # ------------------------------------------------------------------------------ #
-plot_chains = function(pars, priors, subject_idx = NULL, probit){
+plot_chains = function(chains, priors, params, subject_idx = NULL, probit){
 
-  # Extract parameter names
-  params   <- colnames(pars$traces)
-  n_params <- length(params)
+  n_samples <- dim(chains)[1]
+  n_chains  <- dim(chains)[3]
+  n_params  <- length(params)
 
   # Plot setup for group data
-  if (is.null(subject_idx)) {
-    par(mar = c(4.5, 5, 2, 3) + 0.1)
-  } else {
-    par(mar = c(8, 5, 6, 3) + 0.1)
-  }
+  #if (is.null(subject_idx)) {
+    #par(mar = c(6, 5, 6, 3) + 0.1)
+  #} else {
+   # par(mar = c(8, 5, 6, 3) + 0.1)
+  #}
 
-  layout(matrix(1:n_params, 4, byrow=T))
+  n_rows <- ceiling(n_params/4)
+  layout(matrix(1:(n_rows*4), n_rows, 4, byrow=T))
   par(cex.main=1.4)
 
   pf_stop = c(priors$pf_stop[1],priors$pf_stop[2])
-  if (probit) {
-    pf_stop_subj = grep(glob2rx("pf_stop*"), params, value=TRUE)
-  }
+  #if (probit) {
+  #  pf_stop_subj = grep(glob2rx("pf_stop*"), params, value=TRUE)
+  #}
 
   for(par in params){
     if (par == 'pf_stop' | par == 'pf_stop_sd') {next}
-    lim = c(min(pars$traces[,par,])-10, max(pars$traces[,par,])+10)
+    lim = c(min(chains[,par,])-10, max(chains[,par,])+10)
 
-    plot(1:pars$n_samples, pars$traces[,par,1],ylim = lim,
-      xlim = c(1,pars$n_samples), main = paste("MCMC chains",par,sep=" "), xlab="Iteration",
+
+    plot(1:n_samples, chains[,par,1], ylim = lim,
+      xlim = c(1,n_samples), main = par, xlab="Iteration",
       ylab = par,type="l")
 
-    if(pars$n_chains>1){
+    if(n_chains > 1){
        #if multiple chains, draw lines
-      for(j in 2:pars$n_chains){
-        lines(1:pars$n_samples,pars$traces[,par,j],col=j)
+      for(j in 2:n_chains){
+        lines(1:n_samples,chains[,par,j],col=j)
       }
     }
   }
 
-  if (!probit) {
-    plot(1:pars$n_samples,pars$traces[,"pf_stop",1],ylim = c(pf_stop[1],pf_stop[2]), xlim = c(1,pars$n_samples), main = "MCMC chains pf_stop",xlab="Iteration",ylab = "pf_stop",type="l")
-  } else {
-    plot(1:pars$n_samples,pnorm(pars$traces[,pf_stop_subj,1]),ylim = c(0,1), xlim = c(1,pars$n_samples), main = paste("MCMC chains",pf_stop_subj,sep=" "), xlab="Iteration",ylab = pf_stop_subj,type="l")
-  }
+  #if (!probit) {
+  #  plot(1:n_samples, chains[,"pf_stop",1], ylim = c(pf_stop[1],pf_stop[2]), xlim = c(1,n_samples), main = "MCMC chains pf_stop",xlab="Iteration",ylab = "pf_stop",type="l")
+  #} else {
+  #  plot(1:n_samples, pnorm(chains[,pf_stop_subj,1]),ylim = c(0,1), xlim = c(1,n_samples), main = paste("MCMC chains",pf_stop_subj,sep=" "), xlab="Iteration",ylab = pf_stop_subj,type="l")
+  #}
 
-  if(pars$n_chains>1){  #if multiple chains, draw lines
-      for(j in 2:pars$n_chains){
-        if (!probit) {
-          lines(1:pars$n_samples,pars$traces[,"pf_stop",j],col=j)
-        } else {
-          lines(1:pars$n_samples,pnorm(pars$traces[,pf_stop_subj,j]),col=j)
-        }
-      }
-  }
+  #if(n_chains>1){  #if multiple chains, draw lines
+  #    for(j in 2:n_chains){
+  #      if (!probit) {
+  #        lines(1:n_samples,chains[,"pf_stop",j],col=j)
+  #      } else {
+  #        lines(1:n_samples,pnorm(chains[,pf_stop_subj,j]),col=j)
+  #      }
+  #    }
+  #}
 }
 # ------------------------------------------------------------------------------ #

@@ -7,3 +7,5 @@ docs/build
 src/*.c
 *.swp
 .DS_Store
+.RData
+.Rhistory

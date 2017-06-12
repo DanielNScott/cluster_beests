@@ -106,27 +106,27 @@ print('Calculating summary statistics...')
 
 # Group summary statistics
 flog.info('Calculating summary stats for group')
-summary_stats(pars = mcmc.samples, params = param_names, n_subj = mcmc.samples$n_subject)
+summary_stats(mcmc_samples = mcmc.samples, params = param_names, n_subj = mcmc.samples$n_subject)
 
 # Individual summary statistics
 for (n in 1:mcmc.samples$n_subject){
   flog.info('Calculating summary stats for subject %s.', n)
   subj_param_names <- paste(param_names, '_subj.', n, sep='')
-  summary_stats(pars = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
+  summary_stats(mcmc_samples = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
 }
 
 
 ### ------------- Get posteriors --------------- ###
 print('Calculating posterior distributions...')
-plot_posteriors_wrapper(pars = mcmc.samples, priors = priors)
+plot_posteriors_wrapper(mcmc_samples = mcmc.samples, priors = priors)
 
 
 ### -------- Posterior Pred. Checks ------------ ###
 print("Running posterior predictive model checks. This might take a while...")
-posterior_predictions(pars = mcmc.samples, n_post_samples = posterior.predictors.samples, data=data, n_subj = mcmc.samples$n_subject)
+#posterior_predictions(pars = mcmc.samples, n_post_samples = posterior.predictors.samples, data=data, n_subj = mcmc.samples$n_subject)
 
 
-cl <- dev.off()
+dev.off()
 print("BEESTS is done!")
 
 
