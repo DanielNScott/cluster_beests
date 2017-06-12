@@ -1,14 +1,16 @@
 ##
 ## This file coordinates the R post processing routines.
 ##
+print('Post processing invoked. See post_process.log for detailed out.')
 
 # Load some required libraries
 suppressPackageStartupMessages(library("grid"))
 suppressWarnings(library("gridExtra"))
 library(futile.logger)
+flog.appender(appender.file('post_process.log'))
 
 # Load most of the helper functions
-source("post_processing_wtf_aux.R")
+source("post_process_aux.R")
 source("posterior_predictive_checks.R")
 
 # Read Arguments:
@@ -98,6 +100,7 @@ check_silly_things(samples, burn.in, thinning, number.of.chains, posterior.predi
 pdf(paste(analy_dir, "/output.pdf", sep=''), height=11, width=8.5)
 
 # Get MCMC output.
+print('Retrieving MCMC samples...')
 mcmc.samples <- read_prep(dir = analy_dir, n_chains = number.of.chains, n_params = length(param_names))
 
 
@@ -109,10 +112,10 @@ flog.info('Calculating summary stats for group')
 summary_stats(mcmc_samples = mcmc.samples, params = param_names, n_subj = mcmc.samples$n_subject)
 
 # Individual summary statistics
-for (n in 1:mcmc.samples$n_subject){
-  flog.info('Calculating summary stats for subject %s.', n)
-  subj_param_names <- paste(param_names, '_subj.', n, sep='')
-  summary_stats(mcmc_samples = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = n)
+for (subj_num in mcmc.samples$subjects){
+  flog.info('Calculating summary stats for subject %s.', subj_num)
+  subj_param_names <- paste(param_names, '_subj.', subj_num, sep='')
+  summary_stats(mcmc_samples = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = subj_num)
 }
 
 

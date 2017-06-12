@@ -9,3 +9,4 @@ src/*.c
 .DS_Store
 .RData
 .Rhistory
+*.log

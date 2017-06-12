@@ -56,25 +56,36 @@ read_prep = function(dir, n_chains, n_params) {
 
   for(i in 1:n_chains){
 
-      # Read data, convert to matrix:
-    data  <- read.csv(file = paste(dir, "/parameters", i, ".csv", sep=""),head=TRUE,sep=";")
-    chain <- as.matrix(data[,order(names(data))])
+    # Read data, convert to matrix:
+    data      <- read.csv(file = paste(dir, "/parameters", i, ".csv", sep=""),head=TRUE,sep=";")
+    col_names <- names(data)
+    chain     <- as.matrix(data[,order(col_names)])
 
-      # Get number of subjects
-      # Magic numbers:
-      # 1: The number of columns which are not parameter values
-      # 2: The number of columns used to account for the group mean and std of each param
+    # Get number of subjects
+    # Magic numbers:
+    # 1: The number of columns which are not parameter values
+    # 2: The number of columns used to account for the group mean and std of each param
     n_subject <-(ncol(chain) - 1) / n_params - 2
+
+    flog.info('read_prep() has determined there are %s subjects in parameter file %d', toString(n_subject), i)
+
+    regex <- paste('*_subj.*', sep='')
+    subj_params <- grep(glob2rx(regex), col_names, value=TRUE)
+    subjects <- sort(strtoi(unique( gsub('.+_subj.', '', subj_params) )))
+
+    first_subj <- min(subjects)
+    last_subj  <- max(subjects)
+    flog.info('... with subject id %s:%s less %s', first_subj, last_subj, toString(setdiff(first_subj:last_subj,subjects)))
 
     if (i == 1) {
       col_names <- dimnames(chain)[[2]]
-         n_sample  <- nrow(data)
+      n_sample  <- nrow(data)
       traces    <- array(NA, dim=c(dim(data),n_chains), dimnames=list(1:n_sample, col_names,paste("chain", 1:n_chains)))
     }
     traces[,,i] = chain
 
   }
-  return(list(traces = traces, n_subject = n_subject, my_names = col_names, n_samples = n_sample, n_chains = n_chains))
+  return(list(traces = traces, n_subject = n_subject, my_names = col_names, n_samples = n_sample, n_chains = n_chains, subjects = subjects))
 }
 # ------------------------------------------------------------------------------ #
 
@@ -133,7 +144,9 @@ summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
   for(row in 1:length(params)){
     col <- params[[row]]
 
-    if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(mcmc_samples$traces[,col,])} else {val <- mcmc_samples$traces[,col,]}
+    #if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(mcmc_samples$traces[,col,])} else {val <- mcmc_samples$traces[,col,]}
+    if (col == pf_stop_subj) {next}
+    val <- mcmc_samples$traces[,col,]
     summary[row,1]   <- round(    mean(as.vector(val)),4)
     summary[row,2]   <- round(      sd(as.vector(val)),4)
     summary[row,3:7] <- round(quantile(as.vector(val), prob = c(0.025,0.25,0.5,0.75,0.975)),4)
@@ -169,9 +182,9 @@ summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
 # ------------------------------------------------------------------------------ #
 plot_posteriors_wrapper = function(mcmc_samples, priors){
 
-    regex <- paste('*_subj.', '*', sep='')
-    params_subj  <- grep(glob2rx(regex), colnames(mcmc_samples$traces), value=TRUE)
-    params_group <- setdiff(colnames(mcmc_samples$traces), c(params_subj,'X'))
+  regex <- paste('*_subj.', '*', sep='')
+  params_subj  <- grep(glob2rx(regex), colnames(mcmc_samples$traces), value=TRUE)
+  params_group <- setdiff(colnames(mcmc_samples$traces), c(params_subj,'X'))
 
   if (mcmc_samples$n_subject==1) {
     # Individual posteriors
@@ -197,10 +210,11 @@ plot_posteriors_wrapper = function(mcmc_samples, priors){
     #plot_individual_posterior_means(chains, params_group)
     #
 
-    for (subj_num in 1:mcmc_samples$n_subject){
+    for (subj_num in mcmc_samples$subjects){
       # Individual posteriors without prior plotting
-      regex <- paste('*_subj.', toString(subj_num), '*', sep='')
+      regex <- paste('*_subj.', toString(subj_num), sep='')
       params_subj_n  <- grep(glob2rx(regex), params_subj, value=TRUE)
+      flog.info('Parameters found for subject %s: %s', subj_num, toString(params_subj_n))
 
       flog.info('Plotting posteriors for subject %s', subj_num)
       plot_posteriors(mcmc_samples, priors, params_subj_n, plot_priors = FALSE, title_addendum = c('for Subject ', toString(subj_num)))
@@ -230,6 +244,8 @@ plot_posteriors = function(mcmc_samples, priors, params, plot_priors, title_adde
       upper_lim <- priors[[name]][2]
 
       name_var  <- gsub("_sd", "_var", name)
+
+      flog.info('Setting %s prior density using start:%s, lower:%s, upper:%s', name_var, lower_lim, lower_lim, upper_lim )
       prior_densities[[name_var]] <- dunif(lower_lim, lower_lim, upper_lim)
     }
 
@@ -289,7 +305,7 @@ plot_individual_posterior_means = function(chains, n_subj){
 
   # Get posterior means
   for (subj_num in 1:n_subj) {
-    regex <- paste('*_subj.', toString(subj_num), '*', sep='')
+    regex <- paste('*_subj.', toString(subj_num), sep='')
     params = grep(glob2rx(regex), colnames(chains), value=TRUE)
 
     n_params <- length(params)
