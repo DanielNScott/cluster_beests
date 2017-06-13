@@ -101,7 +101,7 @@ def SRRT(np.ndarray[double, ndim=1] value, np.ndarray[double, ndim=1] ips, np.nd
 
     return sum_logp
 
-def Inhibitions(np.ndarray[int, ndim=2] value, np.ndarray[double, ndim=1] ips, double imu_go, double isigma_go, double itau_go, double ishift_go, double imu_stop, double isigma_stop, double itau_stop, ishift_stop, double ipf_stop):
+def Inhibitions(np.ndarray[int, ndim=2] value, np.ndarray[double, ndim=1] ips, double imu_go, double isigma_go, double itau_go, double ishift_go, double imu_stop, double isigma_stop, double itau_stop, double ishift_stop, double ipf_stop):
     """Censored ExGaussian log-likelihood of inhibitions"""
     assert imu_go > 0
     assert isigma_go > 0

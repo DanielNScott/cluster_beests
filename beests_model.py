@@ -14,6 +14,10 @@ path_analysisDir = sys.argv[1]
 dataFile = sys.argv[1] + 'sst_data.csv'
 path__analysisDescription = sys.argv[1] + 'analysis.txt'
 
+print('Using analysis directory    : ' + path_analysisDir)
+print('Using analysis configuration: ' + path__analysisDescription)
+print('Using data found in         : ' + dataFile)
+
 #make dict for input arguments
 vars = dict()
 #load analysis.txt with input arguments and automatically set wd
@@ -61,10 +65,6 @@ from kabuki import Hierarchical
 #				<< _dataFile
 #				<< _analysisDir
 #				<< _analysisDescriptionPath;
-
-print(dataFile)
-print(path_analysisDir)
-print(path__analysisDescription)
 
 data=load_csv(dataFile)
 ncol=len(data.iloc[1])

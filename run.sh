@@ -18,6 +18,8 @@ export LD_LIBRARY_PATH="/gpfs_home/dscott3/lib:"$LD_LIBRARY_PATH
 #echo $LD_LIBRARY_PATH | tr : '\n'
 #echo ' '
 #echo ${1}
+echo 'Running BEESTS model...'
+echo 'Please note post_process.log will be overwritten.'
 
 ### Actually function: MCMC SST Data ###
 python beests_model.py ${1}

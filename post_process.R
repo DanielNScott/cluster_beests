@@ -1,7 +1,7 @@
 ##
 ## This file coordinates the R post processing routines.
 ##
-print('Post processing invoked. See post_process.log for detailed out.')
+print('Post processing, see post_process.log for detailed out.')
 
 # Load some required libraries
 suppressPackageStartupMessages(library("grid"))
