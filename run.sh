@@ -22,7 +22,8 @@ echo 'Running BEESTS model...'
 echo 'Please note post_process.log will be overwritten.'
 
 ### Actually function: MCMC SST Data ###
-python beests_model.py ${1}
+sst_data_dir=${1}
+python beests_model.py ${sst_data_dir}
 
 if [ $? -ne 0 ]
 then
@@ -33,4 +34,4 @@ fi
 
 echo 'BEESTS exited with "success" status.'
 echo 'Running R post processing.'
-Rscript post_process.R ${1}
+Rscript post_process.R ${sst_data_dir}

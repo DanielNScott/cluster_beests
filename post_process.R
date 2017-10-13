@@ -14,12 +14,11 @@ source("post_process_aux.R")
 source("posterior_predictive_checks.R")
 
 # Read Arguments:
-args       <- commandArgs()
-analy_dir  <- args[1]
-data.file  <- paste(args[1], 'sst_data.csv', sep='')
-analy_file <- paste(args[1], 'analysis.txt', sep='')
+analy_dir  <- commandArgs(length( commandArgs()  ))
+data.file  <- paste(analy_dir, 'sst_data.csv', sep='')
+analy_file <- paste(analy_dir, 'analysis.txt', sep='')
 
-flog.info('Analysis directory provided: %s', args[1])
+flog.info('Analysis directory provided: %s', analy_dir)
 
 # Read data file:
 data <- read.csv(data.file,head=TRUE,sep=",")
