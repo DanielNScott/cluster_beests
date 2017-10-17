@@ -213,11 +213,11 @@ class KnodeInhibitions(Knode):
         #kwargs['ips']   = ps_bools
         #kwargs['value'] = np.array(relevant_data['ssd'], dtype=np.int32)
 
-        print('KnodeInhibitions:')
-        print('ips:'  , kwargs['ips'].shape  )
-        print('value:', kwargs['value'].shape)
-        print(kwargs['value'])
-        print(kwargs['ips'])
+        #print('KnodeInhibitions:')
+        #print('ips:'  , kwargs['ips'].shape  )
+        #print('value:', kwargs['value'].shape)
+        #print(kwargs['value'])
+        #print(kwargs['ips'])
         return self.pymc_node(name=node_name, **kwargs)
 
 class StopSignal(Hierarchical):
@@ -227,15 +227,15 @@ class StopSignal(Hierarchical):
 
     def create_ss_knode(self, knodes):
         ss_parents = OrderedDict()
-        ss_parents['imu_go'] = knodes['mu_go_bottom']
-        ss_parents['isigma_go'] = knodes['sigma_go_bottom']
-        ss_parents['itau_go'] = knodes['tau_go_bottom']
-        ss_parents['ishift_go'] = knodes['shift_go_bottom']
-        ss_parents['imu_stop'] = knodes['mu_stop_bottom']
+        ss_parents['imu_go']      = knodes['mu_go_bottom']
+        ss_parents['isigma_go']   = knodes['sigma_go_bottom']
+        ss_parents['itau_go']     = knodes['tau_go_bottom']
+        ss_parents['ishift_go']   = knodes['shift_go_bottom']
+        ss_parents['imu_stop']    = knodes['mu_stop_bottom']
         ss_parents['isigma_stop'] = knodes['sigma_stop_bottom']
-        ss_parents['itau_stop'] = knodes['tau_stop_bottom']
+        ss_parents['itau_stop']   = knodes['tau_stop_bottom']
         ss_parents['ishift_stop'] = knodes['shift_stop_bottom']
-        ss_parents['ipf_stop'] = knodes['pf_stop_bottom']
+        ss_parents['ipf_stop']    = knodes['pf_stop_bottom']
 
         go_like = KnodeGo(Go_like, 'go_like', col_name='rt', observed=True, imu_go=ss_parents['imu_go'], isigma_go=ss_parents['isigma_go'], itau_go=ss_parents['itau_go'], ishift_go=ss_parents['ishift_go'])
         srrt_like = KnodeSRRT(SRRT_like, 'srrt_like', col_name='rt', observed=True, **ss_parents)
@@ -265,15 +265,15 @@ class StopSignal(Hierarchical):
 
         if self.is_group_model and name not in self.group_only_nodes:
             tau_gr = var_gr**-2
-            g = Knode(pm.TruncatedNormal, '%s' % name, mu=mean_gr,tau=tau_gr, a=lower, b=upper, value=value, depends=self.depends[name])
-            var = Knode(pm.Uniform, '%s_var' % name, lower=var_lower,upper=var_upper, value=var_value)
-            tau = Knode(pm.Deterministic, '%s_tau' % name,doc='%s_tau' % name, eval=lambda x: x**-2, x=var,plot=False, trace=False, hidden=True)
+            g      = Knode(pm.TruncatedNormal, '%s'        % name, mu=mean_gr,tau=tau_gr, a=lower, b=upper, value=value, depends=self.depends[name])
+            var    = Knode(pm.Uniform        , '%s_var'    % name, lower=var_lower,upper=var_upper, value=var_value)
+            tau    = Knode(pm.Deterministic  , '%s_tau'    % name, doc='%s_tau' % name, eval=lambda x: x**-2, x=var,plot=False, trace=False, hidden=True)
             subjpt = Knode(pm.TruncatedNormal, '%s_subjpt' % name, mu=g,tau=tau, a=lower, b=upper, value=value, depends=('subj_idx',), subj=True,plot=self.plot_subjs)
-            subj = Knode(pm.Deterministic, '%s_subj' % name, doc='%s_subj' % name, eval=lambda x: probit(x), x=subjpt,plot=False, trace=False, hidden=True)
+            subj   = Knode(pm.Deterministic  , '%s_subj'   % name, doc='%s_subj' % name, eval=lambda x: probit(x), x=subjpt,plot=False, trace=False, hidden=True)
 
-            knodes['%s'%name] = g
-            knodes['%s_var'%name] = var
-            knodes['%s_tau'%name] = tau
+            knodes['%s'%name]        = g
+            knodes['%s_var'%name]    = var
+            knodes['%s_tau'%name]    = tau
             knodes['%s_subjpt'%name] = subjpt
             knodes['%s_bottom'%name] = subj
 

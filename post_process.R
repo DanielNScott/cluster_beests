@@ -14,9 +14,9 @@ source("post_process_aux.R")
 source("posterior_predictive_checks.R")
 
 # Read Arguments:
-analy_dir  <- commandArgs(length( commandArgs()  ))
-data.file  <- paste(analy_dir, 'sst_data.csv', sep='')
-analy_file <- paste(analy_dir, 'analysis.txt', sep='')
+#analy_dir  <- commandArgs(length( commandArgs()  ))
+data.file  <- paste(analy_dir, 'sst_data.csv', sep = '')
+analy_file <- paste(analy_dir, 'analysis.txt', sep = '')
 
 flog.info('Analysis directory provided: %s', analy_dir)
 
@@ -120,12 +120,12 @@ for (subj_num in mcmc.samples$subjects){
 
 ### ------------- Get posteriors --------------- ###
 print('Calculating posterior distributions...')
-plot_posteriors_wrapper(mcmc_samples = mcmc.samples, priors = priors)
+plot_posteriors_wrapper(mcmc.samples, priors)
 
 
 ### -------- Posterior Pred. Checks ------------ ###
 print("Running posterior predictive model checks. This might take a while...")
-#posterior_predictions(pars = mcmc.samples, n_post_samples = posterior.predictors.samples, data=data, n_subj = mcmc.samples$n_subject)
+posterior_predictions(mcmc.samples, posterior.predictors.samples, data, mcmc.samples$n_subject)
 
 
 dev.off()

@@ -238,6 +238,7 @@ plot_posteriors = function(mcmc_samples, priors, params, plot_priors, title_adde
     # Set prior densities
     prior_densities <- list()
     for (name in params) {
+
       # Model contains SD terms, but output on parameter distribution uncertainties is variances.
       name <- gsub("_var", "_sd", name)
       lower_lim <- priors[[name]][1]
