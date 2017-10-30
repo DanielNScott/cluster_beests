@@ -9,34 +9,32 @@ posterior_predictions = function(samples, n_post_samples, data, n_subject){
   for (subj_num in 1:n_subject) {
     post_pars = sample_joint_posterior(samples, n_post_samples, subj_num)
     obs_go    = load_prep_observed_go(samples, subj_num, data)
-    obs_ssrt  = load_prep_observed_ssrt(samples, subj_num, data)
+    obs_srrt  = load_prep_observed_srrt(samples, subj_num, data)
 
     print('Generating go predictions...')
     post_predictions_go = generate_posterior_predictions_go(obs_go$n_go, n_post_samples, post_pars$par_vectors, subj_num)
 
     print('Generating SSRT predictions...')
-    post_predictions_ssrt = generate_posterior_predictions_ssrt(obs_ssrt, post_pars$par_vectors, n_post_samples, n_subject, subj_num)
+    post_predictions_ssrt = generate_posterior_predictions_ssrt(obs_srrt, post_pars$par_vectors, n_post_samples, n_subject, subj_num)
 
     print('Plotting go predictions...')
     plot_posterior_predictions_go(go_rt=obs_go$go_rt,n_go=obs_go$n_go,n_subj = obs_go$n_subj,go_pred=post_predictions_go$go_pred,
                                   subject_idx=subj_num,n_post_samples=n_post_samples)
 
     print('Getting median SSRTs...')
-    post_pred_output_median_ssrt(n_delays = obs_ssrt$n_delays,delays = obs_ssrt$delays,n_subj = obs_ssrt$n_subj,
+    post_pred_output_median_ssrt(n_delays = obs_srrt$n_delays,delays = obs_srrt$delays,n_subj = obs_srrt$n_subj,
                                  median_post_pred_ssrt = post_predictions_ssrt$median_post_pred_ssrt,
-                                 median_observed_ssrt = obs_ssrt$median_observed_ssrt,
-                                 n_observed_ssrt = obs_ssrt$n_observed_ssrt,subject_idx=subj_num)
+                                 median_observed_ssrt = obs_srrt$median_observed_ssrt,
+                                 n_observed_ssrt = obs_srrt$n_observed_ssrt,subject_idx=subj_num)
 
     print('Getting inhibition function...')
-    post_pred_output_inhibition_function(params = post_pars$params,pars = mcmc.samples, n_subj = obs_ssrt$n_subj,
-                                         n_delays_all = obs_ssrt$n_delays_all,delays_all = obs_ssrt$delays_all,
-                                         RR_pred = post_predictions_ssrt$RR_pred,RR_obs = obs_ssrt$RR_obs,
-                                         n_observed_all = obs_ssrt$n_observed_all,subject_idx=subj_num)
+    post_pred_output_inhibition_function(params = post_pars$params,pars = mcmc.samples, obs_srrt = obs_srrt,
+                                         RR_pred = post_predictions_ssrt$RR_pred,subject_idx=subj_num)
 
     print('Output SSRT dist...')
-    post_pred_output_ssrt_distribution(delays=obs_ssrt$delays,n_observed_ssrt=obs_ssrt$n_observed_ssrt,n_subj = obs_ssrt$n_subj,
+    post_pred_output_ssrt_distribution(delays=obs_srrt$delays,n_observed_ssrt=obs_srrt$n_observed_ssrt,n_subj = obs_srrt$n_subj,
                                        post_pred_ssrt=post_predictions_ssrt$post_pred_ssrt,
-                                       ssrt_obs=obs_ssrt$ssrt_obs,n_post_samples=n_post_samples,subject_idx=subj_num)
+                                       ssrt_obs=obs_srrt$ssrt_obs,n_post_samples=n_post_samples,subject_idx=subj_num)
   }
 }
 # ------------------------------------------------------------------------------ #
@@ -86,14 +84,14 @@ load_prep_observed_go= function(pars, subject_idx, data){
 # ------------------------------------------------------------------------------ #
 # DFASDLKFJASDFKL
 # ------------------------------------------------------------------------------ #
-load_prep_observed_ssrt = function(pars, subject_idx, data){
+load_prep_observed_srrt = function(pars, subject_idx, data){
 
   n_subj = pars$n_subject
   if(n_subj == 1){
     data = cbind(subj_idx = rep(1,nrow(data)),data)
   }
 
-  # determine number of ssrts and inhibitions for EACH delay
+  # determine number of srrts and inhibitions for EACH delay
   delays_all = sort(unique(data$ssd[data$subj_idx==subject_idx&data$ss_presented==1]))
   n_delays_all = length(delays_all)
   n_observed_ssrt_all = rep(0,n_delays_all)
@@ -115,12 +113,12 @@ load_prep_observed_ssrt = function(pars, subject_idx, data){
   n_observed_inhibit = rep(NA,length(delays))
   ssrt_obs = list()
 
-  for (d in 1:n_delays){
-    ssrt_temp = data$rt[data$subj_idx==subject_idx&data$ss_presented==1&data$inhibited==0&data$ssd==delays[d]]
+  for (d in 1:n_delays) {
+    ssrt_temp = data$rt[data$subj_idx == subject_idx & data$ss_presented == 1 & data$inhibited == 0 & data$ssd == delays[d]]
     ssrt_obs[[d]] = ssrt_temp
     median_observed_ssrt[d] = median(ssrt_temp)
     n_observed_ssrt[d] = length(ssrt_temp)
-    n_observed_inhibit[d] = nrow(data[data$subj_idx==subject_idx&data$ss_presented==1&data$inhibited==1&data$rt==-999&data$ssd==delays[d],])
+    n_observed_inhibit[d] = nrow(data[data$subj_idx == subject_idx & data$ss_presented == 1 & data$inhibited == 1 & data$rt == -999 & data$ssd == delays[d],])
   }
   n_observed = n_observed_ssrt + n_observed_inhibit
 
@@ -128,7 +126,7 @@ load_prep_observed_ssrt = function(pars, subject_idx, data){
   RR_obs = n_observed_ssrt_all/n_observed_all
 
   return(list(delays = delays, n_delays = n_delays, delays_all = delays_all, n_delays_all = n_delays_all,median_observed_ssrt = median_observed_ssrt, n_observed_ssrt = n_observed_ssrt, n_observed = n_observed,
-      n_observed_ssrt_all = n_observed_ssrt_all, n_observed_all = n_observed_all,n_subj = n_subj, RR_obs=RR_obs,ssrt_obs=ssrt_obs))
+      n_observed_ssrt_all = n_observed_ssrt_all, n_observed_all = n_observed_all,n_subj = n_subj, RR_obs = RR_obs,ssrt_obs = ssrt_obs))
 }
 # ------------------------------------------------------------------------------ #
 
@@ -183,14 +181,14 @@ plot_posterior_predictions_go = function(go_rt,n_go,go_pred,n_subj,subject_idx=N
 # ------------------------------------------------------------------------------ #
 # Generates posterior predictions for median ssrts, ssrt distributions, and inhibition functions
 # ------------------------------------------------------------------------------ #
-generate_posterior_predictions_ssrt = function(obs_ssrt, par_vectors, n_post_samples, n_subj, subj_num = NULL){
+generate_posterior_predictions_ssrt = function(obs_srrt, par_vectors, n_post_samples, n_subj, subj_num = NULL){
 
   params_go    <- paste(c('mu_go_subj'  , 'sigma_go_subj'  , 'tau_go_subj'  ), subj_num, sep = '.')
   params_stop  <- paste(c('mu_stop_subj', 'sigma_stop_subj', 'tau_stop_subj'), subj_num, sep = '.')
 
-  median_post_pred_ssrt <- matrix(NA, obs_ssrt$n_delays_all, n_post_samples)
-  RR_pred               <- matrix(NA, obs_ssrt$n_delays_all, n_post_samples)
-  post_pred_ssrt        <- matrix(NA, obs_ssrt$n_delays_all, n_post_samples)
+  median_post_pred_ssrt <- matrix(NA, obs_srrt$n_delays_all, n_post_samples)
+  RR_pred               <- matrix(NA, obs_srrt$n_delays_all, n_post_samples)
+  post_pred_ssrt        <- matrix(NA, obs_srrt$n_delays_all, n_post_samples)
 
   if (n_subj == 1) {
     prob = par_vectors[, "pf_stop"]
@@ -198,11 +196,11 @@ generate_posterior_predictions_ssrt = function(obs_ssrt, par_vectors, n_post_sam
     prob = pnorm(par_vectors[, paste("pf_stop_subj.", subj_num, sep = "")])
   }
 
-  for (d in 1:obs_ssrt$n_delays_all) {
+  for (d in 1:obs_srrt$n_delays_all) {
 
-    n_tf = obs_ssrt$n_observed_all[d]*prob
+    n_tf = obs_srrt$n_observed_all[d]*prob
     n_tf = round(n_tf, 0)
-    n_notf = obs_ssrt$n_observed_all[d] - n_tf
+    n_notf = obs_srrt$n_observed_all[d] - n_tf
 
     for (j in 1:n_post_samples) {
 
@@ -215,7 +213,7 @@ generate_posterior_predictions_ssrt = function(obs_ssrt, par_vectors, n_post_sam
       stop_nu    <- par_vectors[j, params_stop[3]]
 
       if (n_tf[j] > 0) {
-        ###not triggered trials
+        ### not triggered trials
         ssrt_tf = rexGAUS(n_tf[j], go_mu, go_sigma, go_nu)
       } else ssrt_tf = NULL
 
@@ -223,19 +221,19 @@ generate_posterior_predictions_ssrt = function(obs_ssrt, par_vectors, n_post_sam
       if (n_notf[j] > 0) {
         ###triggered trials
         go_rts  <- rexGAUS(n_notf[j], go_mu, go_sigma, go_nu)
-        stop_rt <- obs_ssrt$delays_all[d] + rexGAUS(n_notf[j], stop_mu, stop_sigma, stop_nu)
+        stop_rt <- obs_srrt$delays_all[d] + rexGAUS(n_notf[j], stop_mu, stop_sigma, stop_nu)
 
-        ssrt = go_rts[go_rts <= stop_rt]
-       } else ssrt = NULL
+        srrt = go_rts[go_rts <= stop_rt]
+       } else srrt = NULL
 
-      all_pred_ssrt = c(ssrt, ssrt_tf)
+      all_pred_ssrt = c(srrt, ssrt_tf)
       post_pred_ssrt[[d]][[j]] = list(all_pred_ssrt)
       median_post_pred_ssrt[d,j] = median(all_pred_ssrt)
-      RR_pred[d,j] = (length(all_pred_ssrt))/obs_ssrt$n_observed_all[d]
+      RR_pred[d,j] = (length(all_pred_ssrt))/obs_srrt$n_observed_all[d]
     }
    }
-   median_post_pred_ssrt = median_post_pred_ssrt[obs_ssrt$n_observed_ssrt_all>0,]
-   post_pred_ssrt = post_pred_ssrt[obs_ssrt$n_observed_ssrt_all>0]
+   median_post_pred_ssrt = median_post_pred_ssrt[obs_srrt$n_observed_ssrt_all>0,]
+   post_pred_ssrt = post_pred_ssrt[obs_srrt$n_observed_ssrt_all>0]
 
    return(list(median_post_pred_ssrt = median_post_pred_ssrt, RR_pred=RR_pred, post_pred_ssrt = post_pred_ssrt))
 }
@@ -317,7 +315,13 @@ post_pred_output_median_ssrt = function(n_delays,delays,n_subj,median_post_pred_
 # ------------------------------------------------------------------------------ #
 # Generates output for posterior predictions for inhibition function and corresponding p values
 # ------------------------------------------------------------------------------ #
-post_pred_output_inhibition_function = function(params,pars,n_subj,n_delays_all,delays_all,RR_pred,RR_obs,n_observed_all,subject_idx=NULL){
+post_pred_output_inhibition_function = function(params, pars, obs_srrt, RR_pred, subject_idx=NULL){
+
+  n_subj         <- obs_srrt$n_subj
+  n_delays_all   <- obs_srrt$n_delays_all
+  delays_all     <- obs_srrt$delays_all
+  RR_obs         <- obs_srrt$RR_obs
+  n_observed_all <- obs_srrt$n_observed_all
 
   pvalue_one_if = rep(NA,n_delays_all)
   pvalue_two_if = rep(NA,n_delays_all)
@@ -387,10 +391,10 @@ post_pred_output_inhibition_function = function(params,pars,n_subj,n_delays_all,
       vioplot(RR_pred[i,],add=T,at=i,col="gray",cex=2)
     }
   }
-
-  for(i in 1:n_delays_all){
-    vioplot(RR_pred[i,],add=T,at=i,col="gray",cex=2)
-  }
+  # THIS NEEDS TO BE FIXED!!!!
+  #for(i in 1:n_delays_all){
+  #  vioplot(RR_pred[i,],add=T,at=i,col="gray",cex=2)
+  #}
   points(1:n_delays_all,RR_obs,cex=1.5,pch=17)
   lines(1:n_delays_all,RR_obs,lwd=2,lty=2)
   lines(1:n_delays_all,average_pred_if,lwd=2,lty=1)

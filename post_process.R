@@ -11,7 +11,7 @@ flog.appender(appender.file('post_process.log'))
 
 # Load most of the helper functions
 source("post_process_aux.R")
-source("posterior_predictive_checks.R")
+#source("posterior_predictive_checks.R")
 
 # Read Arguments:
 #analy_dir  <- commandArgs(length( commandArgs()  ))
@@ -21,26 +21,26 @@ analy_file <- paste(analy_dir, 'analysis.txt', sep = '')
 flog.info('Analysis directory provided: %s', analy_dir)
 
 # Read data file:
-data <- read.csv(data.file,head=TRUE,sep=",")
+data <- read.csv(data.file,head = TRUE,sep = ",")
 ncol <- ncol(data)
-vars <- read.table(analy_file, sep=",")
+vars <- read.table(analy_file, sep = ",")
 
 # Extract variables:
-samples	        <- as.numeric(as.vector(vars[vars[,1]=="samples",2]))
-burn.in          <- as.numeric(as.vector(vars[vars[,1]=="burn-in",2]))
-number.of.chains <- as.numeric(as.vector(vars[vars[,1]=="number of chains",2]))
-thinning	        <- as.numeric(as.vector(vars[vars[,1]=="thinning",2]))
-estimates.for.all<- (vars[vars[,1]=="estimates for subjects or groups",2]=="All")
-summary.statistics<- (vars[vars[,1]=="summary statistics",2]=="1")
-posterior.distributions<- (vars[vars[,1]=="posterior distributions",2]=="1")
-mcmc.chains	     <- (vars[vars[,1]=="mcmc chains",2]=="1")
-deviance         <- (vars[vars[,1]=="deviance",2]=="1")
-posterior.predictors	<- (vars[vars[,1]=="posterior predictors",2]=="1")
-posterior.predictors.samples	<- as.numeric(as.vector(vars[vars[,1]=="posterior predictor samples",2]))
-num.cores        <- as.numeric(as.vector(vars[vars[,1]=="cpu cores",2]))
-int_lower        <- as.numeric(as.vector(vars[vars[,1]=="limits of integration lower",2]))
-int_upper        <- as.numeric(as.vector(vars[vars[,1]=="limits of integration upper",2]))
-version          <- (vars[vars[,1]=="model trigger failure",2]=="0")
+samples	        <- as.numeric(as.vector(vars[vars[,1] == "samples",2]))
+burn.in          <- as.numeric(as.vector(vars[vars[,1] == "burn-in",2]))
+number.of.chains <- as.numeric(as.vector(vars[vars[,1] == "number of chains",2]))
+thinning	        <- as.numeric(as.vector(vars[vars[,1] == "thinning",2]))
+estimates.for.all<- (vars[vars[,1] == "estimates for subjects or groups",2] == "All")
+summary.statistics<- (vars[vars[,1] == "summary statistics",2] == "1")
+posterior.distributions<- (vars[vars[,1] == "posterior distributions",2] == "1")
+mcmc.chains	     <- (vars[vars[,1] == "mcmc chains",2] == "1")
+deviance         <- (vars[vars[,1] == "deviance",2] == "1")
+posterior.predictors	<- (vars[vars[,1] == "posterior predictors",2] == "1")
+posterior.predictors.samples	<- as.numeric(as.vector(vars[vars[,1] == "posterior predictor samples",2]))
+num.cores        <- as.numeric(as.vector(vars[vars[,1] == "cpu cores",2]))
+int_lower        <- as.numeric(as.vector(vars[vars[,1] == "limits of integration lower",2]))
+int_upper        <- as.numeric(as.vector(vars[vars[,1] == "limits of integration upper",2]))
+version          <- (vars[vars[,1] == "model trigger failure",2] == "0")
 
 # Log input fidelity:
 flog.info('Vars read')
@@ -65,15 +65,15 @@ param_dists <- list('go', 'stop')
 param_var   <- list('', '_sd')
 param_lims  <- list('_lower', '_upper')
 
-param_names <- as.vector(outer(param_bases, param_dists, function(x,y) paste(x,y,sep='')))
-param_wsds  <- as.vector(outer(param_names, param_var  , function(x,y) paste(x,y,sep='')))
+param_names <- as.vector(outer(param_bases, param_dists, function(x,y) paste(x,y,sep = '')))
+param_wsds  <- as.vector(outer(param_names, param_var  , function(x,y) paste(x,y,sep = '')))
 
 # Exceptions to rules above
 param_names <- c(param_names, 'pf_stop')
 param_wsds  <- c(param_wsds , 'pf_stop', 'pf_stop_sd')
 
 # Everything gets a lower lim and an upper lim
-terms_wlims <- as.vector(outer(param_wsds , param_lims , function(x,y) paste(x,y,sep='')))
+terms_wlims <- as.vector(outer(param_wsds , param_lims , function(x,y) paste(x,y,sep = '')))
 
 # Read upper and lower limits, otherwise tons of copy paste
 for (term in terms_wlims) {
@@ -84,7 +84,7 @@ for (term in terms_wlims) {
 # Pack prior bounds into a list of lists
 priors <- list()
 for (name in param_wsds) {
-  lims <- as.vector(outer(name, param_lims , function(x,y) paste(x,y,sep='')))
+  lims <- as.vector(outer(name, param_lims , function(x,y) paste(x,y,sep = '')))
   priors[[name]] <- c(get(lims[1]), get(lims[2]))
 }
 
@@ -96,7 +96,7 @@ priors$pf_stop[3:4] <- c(as.numeric(as.vector(vars[vars[,1] == 'pf stop mean', 2
 check_silly_things(samples, burn.in, thinning, number.of.chains, posterior.predictor.samples, int_lower, int_upper, priors)
 
 # Open pdf file to save output
-pdf(paste(analy_dir, "/output.pdf", sep=''), height=11, width=8.5)
+pdf(paste(analy_dir, "/output.pdf", sep = ''), height = 11, width = 8.5)
 
 # Get MCMC output.
 print('Retrieving MCMC samples...')
@@ -113,7 +113,7 @@ summary_stats(mcmc_samples = mcmc.samples, params = param_names, n_subj = mcmc.s
 # Individual summary statistics
 for (subj_num in mcmc.samples$subjects){
   flog.info('Calculating summary stats for subject %s.', subj_num)
-  subj_param_names <- paste(param_names, '_subj.', subj_num, sep='')
+  subj_param_names <- paste(param_names, '_subj.', subj_num, sep = '')
   summary_stats(mcmc_samples = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = subj_num)
 }
 
@@ -130,18 +130,3 @@ posterior_predictions(mcmc.samples, posterior.predictors.samples, data, mcmc.sam
 
 dev.off()
 print("BEESTS is done!")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
