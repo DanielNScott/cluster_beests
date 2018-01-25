@@ -15,8 +15,8 @@ check_silly_things <- function(samples, burn.in, thinning, number.of.chains, pos
    if (samples <= burn.in){ stop("The total number of MCMC samples must be greater than the number of burn-in samples.")}
    if (thinning < 1){ stop("The thinning factor must be greater than 0.")}
    if (((samples-burn.in)/thinning) < 1){ stop("No MCMC samples will be retained. Increse the number of retained samples or decrese the thinning factor.")}
-   if (posterior.predictors == T){
-      if ((((samples-burn.in)/thinning)*number.of.chains) < posterior.predictors.samples){
+   if (post.preds == T){
+      if ((((samples-burn.in)/thinning)*number.of.chains) < post.preds){
            stop("The number of posterior predictive samples cannot be greater than the number of retained MCMC samples.")
       }
    }
@@ -57,25 +57,29 @@ read_prep = function(dir, n_chains, n_params) {
   for(i in 1:n_chains){
 
     # Read data, convert to matrix:
-    data      <- read.csv(file = paste(dir, "/parameters", i, ".csv", sep=""),head=TRUE,sep=";")
+    data      <- read.csv(file = paste(dir, "/parameters", i, ".csv", sep=""), head=TRUE, sep=";")
     col_names <- names(data)
-    chain     <- as.matrix(data[,order(col_names)])
 
-    # Get number of subjects
-    # Magic numbers:
-    # 1: The number of columns which are not parameter values
-    # 2: The number of columns used to account for the group mean and std of each param
-    n_subject <-(ncol(chain) - 1) / n_params - 2
+    # The data contains an indexing column, assigned colname 'X'...
+    #data <- data[setdiff(col_names, 'X')] 
+    #col_names <- names(data)
 
-    flog.info('read_prep() has determined there are %s subjects in parameter file %d', toString(n_subject), i)
+    # Remove 'pt' from 'pf_stop_subjpt.X' column names
+    # It's a hack, sorry...
+    chain <- as.matrix(data[,order(col_names)])
+    col_names <- colnames(chain)
+    colnames(chain) <- gsub('pt', '', col_names)
 
     regex <- paste('*_subj.*', sep='')
     subj_params <- grep(glob2rx(regex), col_names, value=TRUE)
     subjects <- sort(strtoi(unique( gsub('.+_subj.', '', subj_params) )))
+    n_subject <- length(subjects)
+
+    cat(sprintf('read_prep() has determined there are %s subjects in parameter file %d', toString(n_subject), i), '\n')
 
     first_subj <- min(subjects)
     last_subj  <- max(subjects)
-    flog.info('... with subject id %s:%s less %s', first_subj, last_subj, toString(setdiff(first_subj:last_subj,subjects)))
+    cat(sprintf('... with subject id %s:%s less %s', first_subj, last_subj, toString(setdiff(first_subj:last_subj,subjects))), '\n')
 
     if (i == 1) {
       col_names <- dimnames(chain)[[2]]
@@ -93,7 +97,8 @@ read_prep = function(dir, n_chains, n_params) {
 # ------------------------------------------------------------------------------ #
 # Computes summary stats for each parameter (by participant, collapsed over chains) and save output to csv.
 # ------------------------------------------------------------------------------ #
-summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
+summary_stats <- function(traces, params, n_subj, subj_idx = NULL){
+  library(abind)
 
   # In both subject and group cases, we need a row for each param
   summary_rows <- params
@@ -119,10 +124,23 @@ summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
     sigma_stop_subj = grep(glob2rx("sigma_stop*"), params, value=TRUE)
     tau_stop_subj   = grep(glob2rx("tau_stop*"  ), params, value=TRUE)
 
-    meanGo   =      as.vector(mcmc_samples$traces[,mu_go_subj,])        + as.vector(mcmc_samples$traces[,tau_go_subj,])
-    sdGo     = sqrt(as.vector(mcmc_samples$traces[,sigma_go_subj,])^2   + as.vector(mcmc_samples$traces[,tau_go_subj,])^2)
-    meanSRRT =      as.vector(mcmc_samples$traces[,mu_stop_subj ,])     + as.vector(mcmc_samples$traces[,tau_stop_subj ,])
-    sdSRRT   = sqrt(as.vector(mcmc_samples$traces[,sigma_stop_subj,])^2 + as.vector(mcmc_samples$traces[,tau_stop_subj ,])^2)
+    go     <-      traces[,     mu_go_subj,]   + traces[,  tau_go_subj,]
+    ssrt   <- sqrt(traces[,  sigma_go_subj,]^2 + traces[,  tau_go_subj,]^2)
+    goSd   <-      traces[,   mu_stop_subj,]   + traces[,tau_stop_subj,]
+    ssrtSd <- sqrt(traces[,sigma_stop_subj,]^2 + traces[,tau_stop_subj,]^2)
+
+    traces <- abind( traces , go, ssrt, goSd, ssrtSd, along = 2 )
+    new_names <- dimnames(traces)
+    addnl_names <- paste(c('go_subj', 'ssrt_subj', 'goSd_subj', 'ssrtSd_subj'), subj_idx, sep='.')
+
+    ncols <- dim(traces)[2]
+    new_names[[2]][(ncols-3):ncols] <- addnl_names
+    dimnames(traces) <- new_names
+
+    meanGo   =      as.vector(traces[,mu_go_subj,])        + as.vector(traces[,tau_go_subj,])
+    sdGo     = sqrt(as.vector(traces[,sigma_go_subj,])^2   + as.vector(traces[,tau_go_subj,])^2)
+    meanSRRT =      as.vector(traces[,mu_stop_subj ,])     + as.vector(traces[,tau_stop_subj ,])
+    sdSRRT   = sqrt(as.vector(traces[,sigma_stop_subj,])^2 + as.vector(traces[,tau_stop_subj ,])^2)
 
     summary["mean go",1]   = round(mean(meanGo),4)
     summary["mean go",2]   = round(sd(meanGo),4)
@@ -140,13 +158,17 @@ summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
     summary["sd SSRT",2] = round(sd(sdSRRT),4)
     summary["sd SSRT",3:7] = round(quantile(sdSRRT),4)
   }
-  pf_stop_subj = grep(glob2rx("pf_stop*"), params, value=TRUE)
-  for(row in 1:length(params)){
-    col <- params[[row]]
 
-    #if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(mcmc_samples$traces[,col,])} else {val <- mcmc_samples$traces[,col,]}
-    if (col == pf_stop_subj) {next}
-    val <- mcmc_samples$traces[,col,]
+  pf_stop_subj = grep(glob2rx("pf_stop*"), params, value=TRUE)
+
+  row = 0
+  for (param in params){
+    if (!any(param == colnames(traces[,,1]))) {next}
+    row <- row + 1
+
+    #if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(traces[,col,])} else {val <- traces[,col,]}
+    if (param == pf_stop_subj) {next}
+    val <- traces[,param,]
     summary[row,1]   <- round(    mean(as.vector(val)),4)
     summary[row,2]   <- round(      sd(as.vector(val)),4)
     summary[row,3:7] <- round(quantile(as.vector(val), prob = c(0.025,0.25,0.5,0.75,0.975)),4)
@@ -173,6 +195,8 @@ summary_stats <- function(mcmc_samples, params, n_subj, subj_idx = NULL){
   #gt <- gTree(children=gList(table, title))
   grid.newpage()
   grid.draw(table)
+
+  return(traces)
 }
 # ------------------------------------------------------------------------------ #
 
@@ -190,39 +214,78 @@ plot_posteriors_wrapper = function(mcmc_samples, priors){
     # Individual posteriors
     # 'params_group' is used because there are no *_subj.[num] suffixes in non
     # hierarchical model.
-    flog.info('Plotting posteriors')
+    cat(sprintf('Plotting posteriors'), '\n')
     plot_posteriors(mcmc_samples, priors, params_group, plot_priors = TRUE)
 
-    flog.info('Plotting chains')
+    cat(sprintf('Plotting chains'), '\n')
     chains <- mcmc_samples$traces[,params_group,]
     plot_chains(chains, priors, params_group, probit = FALSE)
+
   }
   else {
     # Group posteriors
-    flog.info('Plotting group posteriors')
+    cat(sprintf('Plotting group posteriors'), '\n')
     plot_posteriors(mcmc_samples, priors, params_group, plot_priors = TRUE, title_addendum = 'for Group')
 
-    flog.info('Plotting chains for group params')
+    cat(sprintf('Plotting chains for group params'), '\n')
     chains <- mcmc_samples$traces[,params_group,]
     plot_chains(chains, priors, params_group, probit = FALSE)
 
-    #flog.info('Plotting histogram of individual posterior means')
+    cat(sprintf('Plotting diagnostics for group params'), '\n')
+    plot_diagnostics(mcmc_samples, params_group, nrows = 6, ncols = 3)
+
+    #cat(sprintf('Plotting histogram of individual posterior means'), '\n')
     #plot_individual_posterior_means(chains, params_group)
-    #
 
     for (subj_num in mcmc_samples$subjects){
+      cat(sprintf('Plotting chains, posteriors, and diagnostics for subject %s', subj_num), '\n')
+
       # Individual posteriors without prior plotting
       regex <- paste('*_subj.', toString(subj_num), sep='')
       params_subj_n  <- grep(glob2rx(regex), params_subj, value=TRUE)
-      flog.info('Parameters found for subject %s: %s', subj_num, toString(params_subj_n))
-
-      flog.info('Plotting posteriors for subject %s', subj_num)
+      #cat(sprintf('Parameters found for subject %s: %s', subj_num, toString(params_subj_n)), '\n')
+      
       plot_posteriors(mcmc_samples, priors, params_subj_n, plot_priors = FALSE, title_addendum = c('for Subject ', toString(subj_num)))
 
-      flog.info('Plotting chains for subject %s', subj_num)
       chains <- mcmc_samples$traces[,params_subj_n,]
       plot_chains(chains, priors, params_subj_n, subject_idx = subj_num, probit = FALSE)
+
+      plot_diagnostics(mcmc_samples, params_subj_n, nrows = 4, ncols = 4)
     }
+  }
+}
+# ------------------------------------------------------------------------------ #
+
+
+# ------------------------------------------------------------------------------ #
+# Geweke, Gelman-Rubin Statistics, and ...
+# ------------------------------------------------------------------------------ #
+plot_diagnostics = function(mcmc_samples, params, nrows, ncols){
+  library(coda)
+  mcmc_object <- as.mcmc.list(lapply(as.data.frame(mcmc_samples$traces[,params,]),mcmc))
+  
+  # Geweke
+  layout(matrix(1:(nrows*ncols), nrows, ncols, byrow = T))
+  par(cex.main=1.4)
+  geweke.plot(mcmc_object, auto.layout = FALSE)
+
+  # Gelman-rubin statistics
+  layout(matrix(1:(nrows*ncols), nrows, ncols, byrow = T))
+  par(cex.main=1.4)
+  for (param in params) {
+    mcmc_object <- as.mcmc.list(lapply(as.data.frame(mcmc_samples$traces[,param,]),mcmc))
+    gelman.plot(mcmc_object, auto.layout = FALSE)
+    title(param)
+  }
+
+  # Auto-Correlations
+  layout(matrix(1:(nrows*ncols), nrows, ncols, byrow = T))
+  par(cex.main=1.4)
+  for (param in params) {
+    mcmc_object <- as.mcmc.list(lapply(as.data.frame(mcmc_samples$traces[,param,]),mcmc))
+    maxlag = 500 #dim(mcmc_samples$traces)[1]
+    acf(mcmc_samples$traces[,param,1], lag.max = maxlag, main = '')
+    title(param)
   }
 }
 # ------------------------------------------------------------------------------ #
@@ -246,7 +309,7 @@ plot_posteriors = function(mcmc_samples, priors, params, plot_priors, title_adde
 
       name_var  <- gsub("_sd", "_var", name)
 
-      flog.info('Setting %s prior density using start:%s, lower:%s, upper:%s', name_var, lower_lim, lower_lim, upper_lim )
+      cat(sprintf('Setting %s prior density using start:%s, lower:%s, upper:%s', name_var, toString(lower_lim), toString(lower_lim), toString(upper_lim) ), '\n')
       prior_densities[[name_var]] <- dunif(lower_lim, lower_lim, upper_lim)
     }
 

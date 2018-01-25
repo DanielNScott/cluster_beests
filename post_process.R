@@ -1,24 +1,28 @@
 ##
 ## This file coordinates the R post processing routines.
 ##
-print('Post processing, see post_process.log for detailed out.')
 
 # Load some required libraries
 suppressPackageStartupMessages(library("grid"))
 suppressWarnings(library("gridExtra"))
-library(futile.logger)
-flog.appender(appender.file('post_process.log'))
+#library(futile.logger)
+#flog.appender(appender.file('post_process.log'))
 
 # Load most of the helper functions
 source("post_process_aux.R")
-#source("posterior_predictive_checks.R")
+source("posterior_predictive_checks.R")
 
-# Read Arguments:
-#analy_dir  <- commandArgs(length( commandArgs()  ))
+# Check if Rscript invocation or called from R
+# and determine analysis directory
+args <- commandArgs()
+if (any(args == '--args')) {
+   analy_dir  <- args[which(args == '--args')+1]
+}
+cat('\npost_process.R believes the analysis dir is:\n')
+cat(paste(analy_dir, '\n'))
+
 data.file  <- paste(analy_dir, 'sst_data.csv', sep = '')
 analy_file <- paste(analy_dir, 'analysis.txt', sep = '')
-
-flog.info('Analysis directory provided: %s', analy_dir)
 
 # Read data file:
 data <- read.csv(data.file,head = TRUE,sep = ",")
@@ -26,36 +30,39 @@ ncol <- ncol(data)
 vars <- read.table(analy_file, sep = ",")
 
 # Extract variables:
-samples	        <- as.numeric(as.vector(vars[vars[,1] == "samples",2]))
-burn.in          <- as.numeric(as.vector(vars[vars[,1] == "burn-in",2]))
-number.of.chains <- as.numeric(as.vector(vars[vars[,1] == "number of chains",2]))
-thinning	        <- as.numeric(as.vector(vars[vars[,1] == "thinning",2]))
-estimates.for.all<- (vars[vars[,1] == "estimates for subjects or groups",2] == "All")
-summary.statistics<- (vars[vars[,1] == "summary statistics",2] == "1")
-posterior.distributions<- (vars[vars[,1] == "posterior distributions",2] == "1")
-mcmc.chains	     <- (vars[vars[,1] == "mcmc chains",2] == "1")
-deviance         <- (vars[vars[,1] == "deviance",2] == "1")
-posterior.predictors	<- (vars[vars[,1] == "posterior predictors",2] == "1")
-posterior.predictors.samples	<- as.numeric(as.vector(vars[vars[,1] == "posterior predictor samples",2]))
-num.cores        <- as.numeric(as.vector(vars[vars[,1] == "cpu cores",2]))
-int_lower        <- as.numeric(as.vector(vars[vars[,1] == "limits of integration lower",2]))
-int_upper        <- as.numeric(as.vector(vars[vars[,1] == "limits of integration upper",2]))
-version          <- (vars[vars[,1] == "model trigger failure",2] == "0")
+extract  <- function(str) {vars[vars[,1] == str,2]}
+convert  <- function(x) {as.numeric(as.vector(x))}
+
+samples	          <- convert(extract("samples"))
+burn.in            <- convert(extract("burn-in"))
+number.of.chains   <- convert(extract("number of chains"))
+thinning	          <- convert(extract("thinning"))
+estimates.for.all  <- extract("estimates for subjects or groups") == "All"
+summary.stats      <- extract("summary stats") == "1"
+posterior.dists    <- extract("posterior distributions") == "1"
+mcmc.chains	       <- extract("mcmc chains") == "1"
+deviance           <- extract("deviance") == "1"
+post.preds	       <- extract("posterior predictors") == "1"
+post.preds.samples <- convert(extract("posterior predictor samples"))
+num.cores          <- convert(extract("cpu cores"))
+int_lower          <- convert(extract("limits of integration lower"))
+int_upper          <- convert(extract("limits of integration upper"))
+version            <- extract("model trigger failure") == "0"
 
 # Log input fidelity:
-flog.info('Vars read')
-flog.info('Samples      : %s', samples)
-flog.info('Burn in      : %s', burn.in)
-flog.info('Num Chains   : %s', number.of.chains)
-flog.info('Thinning     : %s', thinning)
-flog.info('Estimates    : %s', estimates.for.all)
-flog.info('Stats        : %s', summary.statistics)
-flog.info('Posteriors   : %s', posterior.distributions)
-flog.info('Chains       : %s', mcmc.chains)
-flog.info('Deviance     : %s', deviance)
-flog.info('Predictors   : %s', posterior.predictors)
-flog.info('Pred. Samples: %s', posterior.predictors.samples)
-flog.info('Num Cores    : %s', num.cores)
+cat(sprintf('Vars read'), '\n')
+cat(sprintf('Samples      : %s', samples), '\n')
+cat(sprintf('Burn in      : %s', burn.in), '\n')
+cat(sprintf('Num Chains   : %s', number.of.chains), '\n')
+cat(sprintf('Thinning     : %s', thinning), '\n')
+cat(sprintf('Estimates    : %s', estimates.for.all), '\n')
+cat(sprintf('Stats        : %s', summary.stats), '\n')
+cat(sprintf('Posteriors   : %s', posterior.dists), '\n')
+cat(sprintf('Chains       : %s', mcmc.chains), '\n')
+cat(sprintf('Deviance     : %s', deviance), '\n')
+cat(sprintf('Predictors   : %s', post.preds), '\n')
+cat(sprintf('Pred. Samples: %s', post.preds.samples), '\n')
+cat(sprintf('Num Cores    : %s', num.cores), '\n')
 
 
 ### ------- Set up params to look at -------- ###
@@ -78,7 +85,7 @@ terms_wlims <- as.vector(outer(param_wsds , param_lims , function(x,y) paste(x,y
 # Read upper and lower limits, otherwise tons of copy paste
 for (term in terms_wlims) {
   term_string_spaced <- gsub("_", " ", term)
-  assign(term, as.numeric(as.vector(vars[vars[,1] == term_string_spaced, 2])) )
+  assign(term, convert(vars[vars[,1] == term_string_spaced, 2]) )
 }
 
 # Pack prior bounds into a list of lists
@@ -89,44 +96,44 @@ for (name in param_wsds) {
 }
 
 # More exceptions...
-priors$pf_stop[3:4] <- c(as.numeric(as.vector(vars[vars[,1] == 'pf stop mean', 2])), as.numeric(as.vector(vars[vars[,1] == 'pf stop sd', 2])))
+priors$pf_stop[3:4] <- c(convert(extract("pf stop mean")), convert(extract('pf stop sd')))
+### ----------------------------------------- ###
 
 
 ### ------------- Some Misc Stuff ------------- ###
-check_silly_things(samples, burn.in, thinning, number.of.chains, posterior.predictor.samples, int_lower, int_upper, priors)
+check_silly_things(samples, burn.in, thinning, number.of.chains, post.preds.samples, int_lower, int_upper, priors)
 
 # Open pdf file to save output
 pdf(paste(analy_dir, "/output.pdf", sep = ''), height = 11, width = 8.5)
 
 # Get MCMC output.
-print('Retrieving MCMC samples...')
+cat('Retrieving MCMC samples...', '\n')
 mcmc.samples <- read_prep(dir = analy_dir, n_chains = number.of.chains, n_params = length(param_names))
+### ---
 
 
 ### --------- Get Summary Statistics ---------- ###
-print('Calculating summary statistics...')
-
 # Group summary statistics
-flog.info('Calculating summary stats for group')
-summary_stats(mcmc_samples = mcmc.samples, params = param_names, n_subj = mcmc.samples$n_subject)
+cat('Calculating summary stats for group', '\n')
+mcmc.samples$traces <- summary_stats(traces = mcmc.samples$traces, params = param_names, n_subj = mcmc.samples$n_subject)
 
 # Individual summary statistics
 for (subj_num in mcmc.samples$subjects){
-  flog.info('Calculating summary stats for subject %s.', subj_num)
+  cat(sprintf('Calculating summary stats for subject %s.', toString(subj_num)), '\n')
   subj_param_names <- paste(param_names, '_subj.', subj_num, sep = '')
-  summary_stats(mcmc_samples = mcmc.samples, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = subj_num)
+  mcmc.samples$traces <- summary_stats(traces = mcmc.samples$traces, params = subj_param_names, n_subj = mcmc.samples$n_subject, subj_idx = subj_num)
 }
+### ---
 
 
-### ------------- Get posteriors --------------- ###
-print('Calculating posterior distributions...')
+### ------ Chains, posteriors, and PPCs ------ ###
+cat('Calculating posterior distributions...', '\n')
 plot_posteriors_wrapper(mcmc.samples, priors)
 
-
-### -------- Posterior Pred. Checks ------------ ###
-print("Running posterior predictive model checks. This might take a while...")
-posterior_predictions(mcmc.samples, posterior.predictors.samples, data, mcmc.samples$n_subject)
+cat("Running posterior predictive model checks. This might take a while...", '\n')
+posterior_predictions(mcmc.samples, post.preds.samples, data, mcmc.samples$n_subject)
+### ---
 
 
 dev.off()
-print("BEESTS is done!")
+cat("BEESTS is done!", '\n')
