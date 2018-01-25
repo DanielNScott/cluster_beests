@@ -12,6 +12,9 @@ sys.path.insert(0, './src') # location of src
 if (len(sys.argv) != 2):
    print("Please provide exactly one argument, the path to the analysis directory.")
    print("This path must contain 'sst_data.csv' and 'analysis.txt', the BEESTS data and config files.")
+   print(' ')
+   print('You have provided:')
+   print(sys.argv)
    exit(1)
 
 path_analysisDir = sys.argv[1]
