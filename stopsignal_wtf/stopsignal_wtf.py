@@ -248,12 +248,11 @@ class StopSignal(Hierarchical):
         knodes.update(self.create_family_trunc_normal('mu_go', lower=mu_go_lower, upper=mu_go_upper, value=mu_go_start,var_lower=mu_go_sd_lower, var_upper=mu_go_sd_upper, var_value=mu_go_sd_start))
         knodes.update(self.create_family_trunc_normal('sigma_go', lower=sigma_go_lower, upper=sigma_go_upper, value=sigma_go_start,var_lower=sigma_go_sd_lower, var_upper=sigma_go_sd_upper, var_value=sigma_go_sd_start))
         knodes.update(self.create_family_trunc_normal('tau_go', lower=tau_go_lower, upper=tau_go_upper, value=tau_go_start,var_lower=tau_go_sd_lower, var_upper=tau_go_sd_upper, var_value=tau_go_sd_start))
-        knodes.update(self.create_family_trunc_normal('shift_go', lower=shift_go_lower, upper=shift_go_upper, value=shift_go_start,var_lower=shift_go_sd_lower, var_upper=shift_go_sd_upper, var_value=shift_go_sd_start))
         knodes.update(self.create_family_trunc_normal('mu_stop', lower=mu_stop_lower, upper=mu_stop_upper, value=mu_stop_start,var_lower=mu_stop_sd_lower, var_upper=mu_stop_sd_upper, var_value=mu_stop_sd_start))
         knodes.update(self.create_family_trunc_normal('sigma_stop', lower=sigma_stop_lower, upper=sigma_stop_upper, value=sigma_stop_start,var_lower=sigma_stop_sd_lower, var_upper=sigma_stop_sd_upper, var_value=sigma_stop_sd_start))
         knodes.update(self.create_family_trunc_normal('tau_stop', lower=tau_stop_lower, upper=tau_stop_upper, value=tau_stop_start,var_lower=tau_stop_sd_lower, var_upper=tau_stop_sd_upper, var_value=tau_stop_sd_start))
 
-        if shift_stop_lower == shift_stop_upper:
+        if abs(shift_stop_lower - shift_stop_upper) < 0.0001:
             shift_knodes = OrderedDict()
             shift_knodes['shift_stop']        = Knode(pm.Deterministic, 'shift_stop'       , eval = lambda: np.array([shift_stop_lower]))
             shift_knodes['shift_stop_var']    = Knode(pm.Deterministic, 'shift_stop_var'   , eval = lambda: np.array([0]))
@@ -261,6 +260,18 @@ class StopSignal(Hierarchical):
             knodes.update(shift_knodes)
         else:
             knodes.update(self.create_family_trunc_normal('shift_stop', lower=shift_stop_lower, upper=shift_stop_upper, value=shift_stop_start,var_lower=shift_stop_sd_lower, var_upper=shift_stop_sd_upper, var_value=shift_stop_sd_start))
+
+        if abs(shift_go_lower - shift_go_upper) < 0.0001:
+            shift_knodes = OrderedDict()
+            shift_knodes['shift_go']        = Knode(pm.Deterministic, 'shift_go'       , eval = lambda: np.array([shift_go_lower]))
+            shift_knodes['shift_go_var']    = Knode(pm.Deterministic, 'shift_go_var'   , eval = lambda: np.array([0]))
+            shift_knodes['shift_go_bottom'] = Knode(pm.Deterministic, 'shift_go_bottom', eval = lambda: np.array([0]))
+            knodes.update(shift_knodes)
+        else:
+            knodes.update(self.create_family_trunc_normal('shift_go', lower=shift_go_lower, upper=shift_go_upper, value=shift_go_start,var_lower=shift_go_sd_lower, var_upper=shift_go_sd_upper, var_value=shift_go_sd_start))
+
+
+
 
         knodes.update(self.create_family_trunc_normal_probit('pf_stop', lower_ind=pf_stop_lower, upper_ind=pf_stop_upper, mean_gr=pf_stop_mean, var_gr=pf_stop_sd, lower=pf_stop_lower, upper=pf_stop_upper, value=pf_stop_start, var_lower=pf_stop_sd_lower, var_upper=pf_stop_sd_upper, var_value=pf_stop_sd_start))
 
@@ -292,3 +303,4 @@ class StopSignal(Hierarchical):
             knodes['%s_bottom'%name] = subj
 
         return knodes
+

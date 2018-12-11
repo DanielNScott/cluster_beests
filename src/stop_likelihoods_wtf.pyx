@@ -53,7 +53,9 @@ def Go(np.ndarray[double, ndim=1] value, np.ndarray[double, ndim=1] ips, double 
     assert imu_go > 0
     assert isigma_go > 0
     assert itau_go > 0
-    assert np.all(value != -999.)
+    assert np.all(value != -999.), 'RT values on go trails cannot be -999.\n' + \
+      'That is, you must remove "misses" from the data.\n GoRT values:\n' + \
+      np.array_str(value) +'\n Valid:\n' + np.array_str(value != -999.)
 
     cdef Py_ssize_t size = value.shape[0]
     cdef Py_ssize_t i
