@@ -121,11 +121,10 @@ print('BEESTS will fit the standard model.')
 #guess if rt data is in msec vs. sec
 rts = data["rt"]
 rts = rts[rts!=-999]
-#print(min(rts))
-#print(max(rts))
 if ((min(rts)<80) | (max(rts)>2500)):
-        print('The maximum and/or minimum RT in your dataset is unlikely. Are you sure that your data are in milliseconds?')
-
+    print('The maximum and/or minimum RT in your dataset is unlikely. Are you sure that your data are in milliseconds?')
+    print('Min RT: ' + min(rts))
+    print('Max RT: ' + max(rts))
 
 #--------------------------------------------------------------Start sampling
 os.chdir(path_analysisDir)
