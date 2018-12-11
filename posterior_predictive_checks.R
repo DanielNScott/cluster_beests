@@ -6,7 +6,7 @@ posterior_predictions = function(samples, n_post_samples, data, n_subject){
    suppressPackageStartupMessages(library("gamlss.dist"))
    suppressPackageStartupMessages(library("vioplot"))
 
-  for (subj_num in 1:n_subject) {
+  for (subj_num in unique(data$subj_idx)) {
     post_pars = sample_joint_posterior(samples, n_post_samples, subj_num)
     obs_go    = load_prep_observed_go(samples, subj_num, data)
     obs_srrt  = load_prep_observed_srrt(samples, subj_num, data)
@@ -21,10 +21,10 @@ posterior_predictions = function(samples, n_post_samples, data, n_subject){
     cat('Plotting predictions: Go...', '\n')
     plot_post_preds_go(go_rt=obs_go$go_rt, go_pred=post_preds_go$go_pred, subject_idx=subj_num)
 
-    #cat('Plotting predictions: SRRT...', '\n')
-    #plot_post_preds_srrt(delays=obs_srrt$delays, n_observed_srrt=obs_srrt$n_observed_srrt, 
-    #  post_pred_srrt=post_preds_srrt$post_pred_srrt,
-    #  srrt_obs=obs_srrt$srrt_obs,subject_idx=subj_num)
+    cat('Plotting predictions: SRRT...', '\n')
+    plot_post_preds_srrt(delays=obs_srrt$delays, n_observed_srrt=obs_srrt$n_observed_srrt,
+      post_pred_srrt=post_preds_srrt$post_pred_srrt,
+      srrt_obs=obs_srrt$srrt_obs,subject_idx=subj_num)
 
     cat('Getting median SRRTs...', '\n')
     post_pred_output_median_srrt(n_delays = obs_srrt$n_delays,delays = obs_srrt$delays,
@@ -164,7 +164,7 @@ plot_post_preds_go = function(go_rt, go_pred, subject_idx = NULL){
   x = max(go_rt)+600
   y = max(hist(go_rt, plot=F)$density)
   y = y + 0.6*y
-  
+
   # Plot the go RT density and histogram
   layout(matrix(1))
   subj_str <- ifelse(is.null(subject_idx), '', ', Subject')
@@ -173,7 +173,7 @@ plot_post_preds_go = function(go_rt, go_pred, subject_idx = NULL){
   hist(go_rt, freq=F, xlim=c(0,x), ylim=c(0,y), xlab="go RT (ms)", las=1, main=main, ylab="Density")
   hist(go_rt, freq=F, add=T)
 
-  # Add posterior density predictions 
+  # Add posterior density predictions
   n_samples <- dim(go_pred)[2]
   for(j in 1:n_samples) {
     lines(density(go_pred[,j]),col="gray")
@@ -280,18 +280,25 @@ post_pred_output_median_srrt = function(n_delays,delays,n_subj,median_post_pred_
   w <- grobWidth(table)
 
   if(n_subj==1){
-    title <- textGrob("Post. pred. p vals for median srrt", y=unit(0.5,"npc") + 0.5*h,
-                  vjust=0, gp=gpar(fontsize=20))
-    main = "Posterior predictive model check for median srrt"
+    table_title <- "Post. pred. p vals for median srrt"
+    plot_title  <- "Posterior predictive model check for median srrt"
   } else {
-    title <- textGrob(paste("Post. pred. p vals, median srrt, Subject",subject_idx,sep=" "), y=unit(0.5,"npc") + 0.5*h,
-                  vjust=0, gp=gpar(fontsize=20))
-    main = paste("PPC, median srrt, Subject",subject_idx,sep=" ")
+    table_title <- paste("Post. pred. p vals, median srrt, Subject",subject_idx,sep=" ")
+    plot_title  <- paste("PPC, median srrt, Subject",subject_idx,sep=" ")
   }
 
-  gt <- gTree(children=gList(table, title))
+  padding     <- unit(1,"line")
+  table_title <- textGrob(table_title, gp=gpar(fontsize=20))
+  footnote    <- textGrob("footnote", x=0, hjust=0, gp=gpar( fontface="italic"))
+
+  table <- gtable_add_rows(table, heights = grobHeight(table_title) + padding, pos = 0)
+  table <- gtable_add_rows(table, heights = grobHeight(footnote)+ padding)
+
+  table <- gtable_add_grob(table, list(table_title, footnote), t=c(1, nrow(table)), l=c(1,2), r=ncol(table))
+
+  #gt <- gTree(children=gList(table, table_title))
   grid.newpage()
-  grid.draw(gt)
+  grid.draw(table)
 
   # Make violin plot
   my_min = min(c(min(median_post_pred_srrt,na.rm=T),min(median_observed_srrt)))-80
@@ -301,7 +308,7 @@ post_pred_output_median_srrt = function(n_delays,delays,n_subj,median_post_pred_
 
   # These are the circles I think...
   plot(1:length(delays),median_observed_srrt,pch=17,xlab="SSD (ms)",axes=F,
-    ylim=ran,xlim=c(0,n_delays+1),ylab ="",main=main,cex=1.3)
+    ylim=ran,xlim=c(0,n_delays+1),ylab ="",main=plot_title,cex=1.3)
   axis(1,at=0:(n_delays+1),labels=c(NA,delays,NA))
   axis(2,at=ran,las=2)
   mtext("Median srrt (ms)",2, cex=1.4,line=1)
@@ -376,18 +383,26 @@ post_pred_output_inhibition_function = function(params, pars, obs_srrt, RR_pred,
   w <- grobWidth(table)
 
   # Set titles for table and plots
-  subj_str <- ifelse(is.null(subject_idx), '', ', Subject')
-  main <- paste("PPC for inhibition function", subj_str, subject_idx, sep=" ")
-  title <- textGrob(main, y=unit(0.5,"npc") + 0.5*h, vjust=0, gp=gpar(fontsize=16))
+  subj_str    <- ifelse(is.null(subject_idx), '', ', Subject')
+  table_title <- paste("Response rate data", subj_str, subject_idx, sep=" ")
+  plot_title  <- paste("PPC for inhibition function", subj_str, subject_idx, sep=" ")
 
-  gt <- gTree(children = gList(table, title))
-  #grid.newpage()
-  grid.draw(gt)
+  padding     <- unit(1,"line")
+  table_title <- textGrob(table_title, gp=gpar(fontsize=20))
+  footnote    <- textGrob("footnote", x=0, hjust=0, gp=gpar( fontface="italic"))
+
+  table <- gtable_add_rows(table, heights = grobHeight(table_title) + padding, pos = 0)
+  table <- gtable_add_rows(table, heights = grobHeight(footnote)+ padding)
+
+  table <- gtable_add_grob(table, list(table_title, footnote), t=c(1, nrow(table)), l=c(1,2), r=ncol(table))
+
+  grid.newpage()
+  grid.draw(table)
 
   # Make violin plot
   par(cex=1.2,cex.lab = 1.2,mar=c(11, 10, 10, 8),cex.main=1.4)
   plot(1:length(delays_all),RR_obs,pch=17,xlab="SSD (ms)",axes=F,
-    ylim=c(0,1),xlim=c(0,n_delays_all+1),ylab ="",main=main,cex=1.3)
+    ylim=c(0,1),xlim=c(0,n_delays_all+1),ylab ="",main=plot_title,cex=1.3)
   axis(1,at=0:(n_delays_all+1),labels=c(NA,delays_all,NA))
   axis(2,at=c(0,1),las=2)
   mtext("Response Rate",2, cex=1.4,line=1)
@@ -416,7 +431,7 @@ post_pred_output_inhibition_function = function(params, pars, obs_srrt, RR_pred,
 # ------------------------------------------------------------------------------ #
 plot_post_preds_srrt = function(delays,n_observed_srrt,post_pred_srrt,srrt_obs,subject_idx=NULL){
 
-  ind = n_observed_srrt>=10
+  ind = n_observed_srrt>=5
   dels = delays[ind]
   n_dels = length(dels)
   srrt_obs_use = srrt_obs[ind]
@@ -439,7 +454,7 @@ plot_post_preds_srrt = function(delays,n_observed_srrt,post_pred_srrt,srrt_obs,s
       hist(srrt_obs, col='black', freq=F,xlim=c(0,x),ylim=c(0,y),xlab="srrt (ms)",las=1,main = main,ylab="Density")
 
       preds <- unlist(srrt_pred[[1]])
-      n_post_samples <- dim(preds)[1]
+      n_post_samples <- length(preds)
       for(j in 1:n_post_samples){
         pdat = unlist(srrt_pred[[1]][j])
           if(length(pdat)>1){

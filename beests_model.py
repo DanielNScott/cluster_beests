@@ -123,8 +123,10 @@ rts = data["rt"]
 rts = rts[rts!=-999]
 if ((min(rts)<80) | (max(rts)>2500)):
     print('The maximum and/or minimum RT in your dataset is unlikely. Are you sure that your data are in milliseconds?')
-    print('Min RT: ' + min(rts))
-    print('Max RT: ' + max(rts))
+    print('Min RT: ')
+    print(min(rts))
+    print('Max RT: ')
+    print(max(rts))
 
 #--------------------------------------------------------------Start sampling
 os.chdir(path_analysisDir)
