@@ -108,7 +108,7 @@ pdf(paste(analy_dir, "/output.pdf", sep = ''), height = 11, width = 8.5)
 
 # Get MCMC output.
 cat('Retrieving MCMC samples...', '\n')
-mcmc.samples <- read_prep(dir = analy_dir, n_chains = number.of.chains, n_params = length(param_names))
+mcmc.samples <- read_prep(dir = analy_dir, n_chains = number.of.chains)
 ### ---
 
 
@@ -125,6 +125,11 @@ for (subj_num in mcmc.samples$subjects){
 }
 ### ---
 
+# Write modified traces back out (GoRT, SSRT, GoSd, SSRTSd have been appended)
+for(i in 1:number.of.chains){
+  write.table(x = mcmc.samples$traces[,,i], file = paste(analy_dir, "/new_parameters", i, ".csv", sep=""),
+   col.names=TRUE, row.names=FALSE, sep=";", quote=FALSE)
+}
 
 ### ------ Chains, posteriors, and PPCs ------ ###
 cat('Calculating posterior distributions...', '\n')

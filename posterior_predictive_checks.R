@@ -197,7 +197,7 @@ generate_post_preds_srrt = function(obs_srrt, par_vectors, n_post_samples, n_sub
   if (n_subj == 1) {
     prob = par_vectors[, "pf_stop"]
   } else {
-    prob = pnorm(par_vectors[, paste("pf_stop_subj.", subj_num, sep = "")])
+    prob = par_vectors[, paste("pf_stop_subj.", subj_num, sep = "")]
   }
 
   for (d in 1:obs_srrt$n_delays_all) {
@@ -346,7 +346,7 @@ post_pred_output_inhibition_function = function(params, pars, obs_srrt, RR_pred,
   if(n_subj == 1) {
     prob = pars$traces[,params[7],]
   } else {
-    prob = pnorm(pars$traces[,grep(glob2rx("pf_stop*"), params, value=TRUE),])
+    prob = pars$traces[,grep(glob2rx("pf_stop*"), params, value=TRUE),]
   }
   q_tf = quantile(prob, prob = c(0.025,0.975))
   mean_prob = mean(prob)

@@ -52,7 +52,7 @@ check_silly_things <- function(samples, burn.in, thinning, number.of.chains, pos
 # ------------------------------------------------------------------------------ #
 ### Load python traces in R and make array for further use
 # ------------------------------------------------------------------------------ #
-read_prep = function(dir, n_chains, n_params) {
+read_prep = function(dir, n_chains) {
 
   for(i in 1:n_chains){
 
@@ -61,7 +61,7 @@ read_prep = function(dir, n_chains, n_params) {
     col_names <- names(data)
 
     # The data contains an indexing column, assigned colname 'X'...
-    #data <- data[setdiff(col_names, 'X')] 
+    #data <- data[setdiff(col_names, 'X')]
     #col_names <- names(data)
 
     # Remove 'pt' from 'pf_stop_subjpt.X' column names
@@ -125,8 +125,8 @@ summary_stats <- function(traces, params, n_subj, subj_idx = NULL){
     tau_stop_subj   = grep(glob2rx("tau_stop*"  ), params, value=TRUE)
 
     go     <-      traces[,     mu_go_subj,]   + traces[,  tau_go_subj,]
-    ssrt   <- sqrt(traces[,  sigma_go_subj,]^2 + traces[,  tau_go_subj,]^2)
-    goSd   <-      traces[,   mu_stop_subj,]   + traces[,tau_stop_subj,]
+    goSd   <- sqrt(traces[,  sigma_go_subj,]^2 + traces[,  tau_go_subj,]^2)
+    ssrt   <-      traces[,   mu_stop_subj,]   + traces[,tau_stop_subj,]
     ssrtSd <- sqrt(traces[,sigma_stop_subj,]^2 + traces[,tau_stop_subj,]^2)
 
     traces <- abind( traces , go, ssrt, goSd, ssrtSd, along = 2 )
@@ -163,11 +163,11 @@ summary_stats <- function(traces, params, n_subj, subj_idx = NULL){
 
   row = 0
   for (param in params){
-    if (!any(param == colnames(traces[,,1]))) {next}
     row <- row + 1
+    if (!any(param == colnames(traces[,,1]))) {next}
 
     #if (col == pf_stop_subj & !is.null(subj_idx)) {val <- pnorm(traces[,col,])} else {val <- traces[,col,]}
-    if (param == pf_stop_subj) {next}
+    #if (param == pf_stop_subj) {next}
     val <- traces[,param,]
     summary[row,1]   <- round(    mean(as.vector(val)),4)
     summary[row,2]   <- round(      sd(as.vector(val)),4)
@@ -178,11 +178,14 @@ summary_stats <- function(traces, params, n_subj, subj_idx = NULL){
   table <- tableGrob(summary)
 
   #title <- textGrob("Summary statistics group level parameters", y=unit(0.5,"npc") + 0.5*h, vjust=0, gp=gpar(fontsize=20))
-  if (is.null(subj_idx)) {level <- 'group'} else {level <- paste('subject ', toString(subj_idx), sep='')}
-  title <- paste("Summary statistics for", level, "parameters", sep = ' ')
+  if (is.null(subj_idx)) {
+    level <- 'group'
+  } else {
+    level <- paste('subject ', toString(subj_idx), sep='')
+  }
 
-  title <- textGrob(title, gp=gpar(fontsize=20))
-
+  title    <- paste("Summary statistics for", level, "parameters", sep = ' ')
+  title    <- textGrob(title, gp=gpar(fontsize=20))
   footnote <- textGrob("footnote", x=0, hjust=0, gp=gpar( fontface="italic"))
 
   padding <- unit(1,"line")
@@ -244,7 +247,7 @@ plot_posteriors_wrapper = function(mcmc_samples, priors){
       regex <- paste('*_subj.', toString(subj_num), sep='')
       params_subj_n  <- grep(glob2rx(regex), params_subj, value=TRUE)
       #cat(sprintf('Parameters found for subject %s: %s', subj_num, toString(params_subj_n)), '\n')
-      
+
       plot_posteriors(mcmc_samples, priors, params_subj_n, plot_priors = FALSE, title_addendum = c('for Subject ', toString(subj_num)))
 
       chains <- mcmc_samples$traces[,params_subj_n,]
@@ -263,7 +266,7 @@ plot_posteriors_wrapper = function(mcmc_samples, priors){
 plot_diagnostics = function(mcmc_samples, params, nrows, ncols){
   library(coda)
   mcmc_object <- as.mcmc.list(lapply(as.data.frame(mcmc_samples$traces[,params,]),mcmc))
-  
+
   # Geweke
   layout(matrix(1:(nrows*ncols), nrows, ncols, byrow = T))
   par(cex.main=1.4)
