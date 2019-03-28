@@ -223,7 +223,7 @@ class KnodeInhibitions(Knode):
         #        ips.append(1)
 
         # New ps definition for use as type indicator
-        ps_bools  = np.array(data[np.where((msk_ss) & (msk_respond))]['type'], dtype=np.float)
+        ps_bools  = relevant_data['type']
         uniq_ssds = np.unique(relevant_data['ssd'])
         ssd_inhib_trials = []
         ips = []
@@ -242,8 +242,8 @@ class KnodeInhibitions(Knode):
                 ssd_inhib_trials.append((uniq_ssd, n_neut))
                 ips.append(0.)
 
-            if n_npos > 0:
-                ssd_inhib_trials.append((uniq_ssd, n_neut))
+            if n_pos > 0:
+                ssd_inhib_trials.append((uniq_ssd, n_pos))
                 ips.append(1.)
 
         ssd_inhib_trials = np.array(ssd_inhib_trials, dtype=np.int32)
