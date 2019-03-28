@@ -10,7 +10,8 @@ from copy import copy
 from scipy.stats import norm
 from scipy.integrate import quad
 import pandas as pd
-#import ipdb
+import ipdb
+
 try:
     from IPython.Debugger import Tracer; debug_here = Tracer()
 except:
@@ -146,11 +147,19 @@ class KnodeGo(Knode):
         msk_ss          = data['ss_presented'] == 0
         kwargs['value'] = data[msk_ss]['rt']
 
-        ps_bools      = abs(np.roll(data['ss_presented'],1) - 1)
-        ps_bools[0]   = 0.
-        ps_bools      = np.array(ps_bools, dtype=np.float)
-        kwargs['ips'] = ps_bools[np.where(msk_ss)]
+        # -----------
+        # Original/real ps ("post signal") definition, for use with shift
+        # Commented out because I'm hacking shift vars to be type-based and ps to be the type indicator.
+        # -----------
+        #ps_bools      = abs(np.roll(data['ss_presented'],1) - 1)
+        #ps_bools[0]   = 0.
+        #ps_bools      = np.array(ps_bools, dtype=np.float)
+        #kwargs['ips'] = ps_bools[np.where(msk_ss)]
 
+        # New ps definition for use as type indicator
+        kwargs['ips'] = np.array(data[msk_ss]['type'], dtype=np.float)
+
+        #ipdb.set_trace()
         #print('KnodeGo:')
         #print(kwargs['ips'].shape  , type(kwargs['ips']))
         #print(kwargs['value'].shape, type(kwargs['value']))
@@ -165,10 +174,18 @@ class KnodeSRRT(Knode):
         kwargs['value'] = relevant_data['rt']
         kwargs['issd']  = np.array(relevant_data['ssd'], dtype=np.int32)
 
-        ps_bools        = np.roll(data['ss_presented'],1)
-        ps_bools[0]     = 0.
-        kwargs['ips']   = np.array(ps_bools[np.where((msk_ss) & (msk_respond))], dtype=np.float)
+        # -----------
+        # Original/real ps ("post signal") definition, for use with shift
+        # Commented out because I'm hacking shift vars to be type-based and ps to be the type indicator.
+        # -----------
+        #ps_bools        = np.roll(data['ss_presented'],1)
+        #ps_bools[0]     = 0.
+        #kwargs['ips']   = np.array(ps_bools[np.where((msk_ss) & (msk_respond))], dtype=np.float)
 
+        # New ps definition for use as type indicator
+        kwargs['ips'] = np.array(relevant_data['type'], dtype=np.float)
+
+        #ipdb.set_trace()
         #print('KnodeSRRT:')
         #print(kwargs['ips'].shape  , type(kwargs['ips']))
         #print(kwargs['value'].shape, type(kwargs['value']))
@@ -181,32 +198,62 @@ class KnodeInhibitions(Knode):
         msk_respond     = data['inhibited'] == 1
         relevant_data   = data[(msk_ss) & (msk_respond)]
 
-        ps_bools    = np.roll(data['ss_presented'],1)
-        ps_bools[0] = 0.
-        ps_bools    = np.array(ps_bools[np.where((msk_ss) & (msk_respond))], dtype=np.float)
+        # -----------
+        # Original/real ps ("post signal") definition, for use with shift
+        # Commented out because I'm hacking shift vars to be type-based and ps to be the type indicator.
+        # -----------
+        #ps_bools    = np.roll(data['ss_presented'],1)
+        #ps_bools[0] = 0.
+        #ps_bools    = np.array(ps_bools[np.where((msk_ss) & (msk_respond))], dtype=np.float)
+        #uniq_ssds = np.unique(relevant_data['ssd'])
+        #ssd_inhib_trials = []
+        #ips = []
+        #for uniq_ssd in uniq_ssds:
+        #    this_ssd_msk = relevant_data['ssd'] == uniq_ssd
 
+        #    n_not_ps = len(relevant_data[this_ssd_msk & (ps_bools == 0)])
+        #    n_ps     = len(relevant_data[this_ssd_msk & (ps_bools == 1)])
+
+        #    if n_not_ps > 0:
+        #        ssd_inhib_trials.append((uniq_ssd, n_not_ps))
+        #        ips.append(0)
+
+        #    if n_ps > 0:
+        #        ssd_inhib_trials.append((uniq_ssd, n_ps    ))
+        #        ips.append(1)
+
+        # New ps definition for use as type indicator
+        ps_bools  = np.array(data[np.where((msk_ss) & (msk_respond))]['type'], dtype=np.float)
         uniq_ssds = np.unique(relevant_data['ssd'])
         ssd_inhib_trials = []
         ips = []
         for uniq_ssd in uniq_ssds:
             this_ssd_msk = relevant_data['ssd'] == uniq_ssd
 
-            n_not_ps = len(relevant_data[this_ssd_msk & (ps_bools == 0)])
-            n_ps     = len(relevant_data[this_ssd_msk & (ps_bools == 1)])
+            n_neg  = len(relevant_data[this_ssd_msk & (ps_bools == -1)])
+            n_neut = len(relevant_data[this_ssd_msk & (ps_bools ==  0)])
+            n_pos  = len(relevant_data[this_ssd_msk & (ps_bools ==  1)])
 
-            if n_not_ps > 0:
-                ssd_inhib_trials.append((uniq_ssd, n_not_ps))
-                ips.append(0)
+            if n_neg > 0:
+                ssd_inhib_trials.append((uniq_ssd, n_neg))
+                ips.append(-1.)
 
-            if n_ps > 0:
-                ssd_inhib_trials.append((uniq_ssd, n_ps    ))
-                ips.append(1)
+            if n_neut > 0:
+                ssd_inhib_trials.append((uniq_ssd, n_neut))
+                ips.append(0.)
+
+            if n_npos > 0:
+                ssd_inhib_trials.append((uniq_ssd, n_neut))
+                ips.append(1.)
 
         ssd_inhib_trials = np.array(ssd_inhib_trials, dtype=np.int32)
         ips = np.array(ips, dtype=np.float)
 
         kwargs['value'] = ssd_inhib_trials
         kwargs['ips']   = ips
+
+        #ipdb.set_trace()
+
         #kwargs['ips']   = np.array([ssd_inhib_trials.shape[0],1], dtype=np.float)
         #kwargs['ips'][1:len(uniq_ssds*2):2] = 1
 
