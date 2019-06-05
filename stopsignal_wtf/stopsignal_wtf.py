@@ -10,7 +10,15 @@ from copy import copy
 from scipy.stats import norm
 from scipy.integrate import quad
 import pandas as pd
-import ipdb
+
+# ipdb MUST be commented out when running with multiple cores
+# Failing to do so will result in an error like:
+#     multiprocessing/pool.py", line 567, in get raise self._value
+#     PicklingError: Can't pickle <type 'function'>:
+#     attribute lookup __builtin__.function failed
+#
+#import ipdb
+#
 
 try:
     from IPython.Debugger import Tracer; debug_here = Tracer()

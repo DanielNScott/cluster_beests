@@ -270,7 +270,8 @@ plot_diagnostics = function(mcmc_samples, params, nrows, ncols){
   # Geweke
   layout(matrix(1:(nrows*ncols), nrows, ncols, byrow = T))
   par(cex.main=1.4)
-  geweke.plot(mcmc_object, auto.layout = FALSE)
+  #browser()
+  #geweke.plot(mcmc_object, auto.layout = FALSE)
 
   # Gelman-rubin statistics
   layout(matrix(1:(nrows*ncols), nrows, ncols, byrow = T))
