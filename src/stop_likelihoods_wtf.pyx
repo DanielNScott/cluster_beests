@@ -32,21 +32,31 @@ cdef extern from "stdlib.h":
 cdef inline double ExGauss_pdf(double value, double ips, double mu, double sigma, double tau, double shift) nogil:
     """ ExGaussian log pdf"""
     cdef double z
+    
+    # Standard deviation or mu shift on the basis of valence. Should not be both.
+    sigma = sigma + shift*ips
+    #mu = mu + shift*ips
+
     if tau > 0.05*sigma:
-        z = value - (mu + shift*ips) - ((sigma**2)/tau)
+        z = value - mu - ((sigma**2)/tau)
         return -log(tau) - (z+(sigma**2/(2*tau)))/tau + log( gsl_cdf_gaussian_P(z/sigma, 1) )
     else:
-        return log(gsl_ran_gaussian_pdf(value-(mu+shift*ips), sigma))
+        return log(gsl_ran_gaussian_pdf(value-mu, sigma))
 
 cdef inline double ExGauss_cdf(double value, double ips, double mu, double sigma, double tau, double shift) nogil:
     """ ExGaussian log cdf upper tail"""
     cdef double z
+
+    # Standard deviation or mu shift on the basis of valence. Should not be both.
+    sigma = sigma + shift*ips
+    #mu = mu + shift*ips
+
     if tau > 0.05*sigma:
-        z = value - (mu+shift*ips) - ((sigma**2)/tau)
-        return log(1-(gsl_cdf_gaussian_P((value-(mu+shift*ips))/sigma,1)-gsl_cdf_gaussian_P(z/sigma,1)*exp(((((mu+shift*ips)+((sigma**2)/tau))**2)-
-        ((mu+shift*ips)**2)-2*value *((sigma**2)/tau))/(2*(sigma**2)))))
+        z = value - mu - ((sigma**2)/tau)
+        return log(1-(gsl_cdf_gaussian_P((value-mu)/sigma,1)-gsl_cdf_gaussian_P(z/sigma,1)*exp((((mu+((sigma**2)/tau))**2)-
+        (mu**2)-2*value *((sigma**2)/tau))/(2*(sigma**2)))))
     else:
-        return log((1-(gsl_cdf_gaussian_P(((value-(mu+shift*ips))/sigma), 1))))
+        return log((1-(gsl_cdf_gaussian_P(((value-mu)/sigma), 1))))
 
 def Go(np.ndarray[double, ndim=1] value, np.ndarray[double, ndim=1] ips, double imu_go, double isigma_go, double itau_go, double ishift_go):
     """Ex-Gaussian log-likelihood of GoRTs"""
