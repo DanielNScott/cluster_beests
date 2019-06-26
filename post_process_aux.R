@@ -336,8 +336,8 @@ plot_posteriors = function(mcmc_samples, priors, params, plot_priors, title_adde
     if (par == 'pf_stop_var' | par == 'pf_stop') {next}
 
     #title   <- paste("Posterior", par, title_addendum, sep=" ")
-    x_lower <- min(mcmc_samples$traces[,par,])-30
-    x_upper <- max(mcmc_samples$traces[,par,])+30
+    x_lower <- min(mcmc_samples$traces[,par,])
+    x_upper <- max(mcmc_samples$traces[,par,])
     xlimits <- c(x_lower, x_upper)
 
     posterior <- density(mcmc_samples$traces[,par,])
@@ -424,7 +424,9 @@ plot_chains = function(chains, priors, params, subject_idx = NULL, probit){
 
   for(par in params){
     if (par == 'pf_stop' | par == 'pf_stop_sd') {next}
-    lim = c(min(chains[,par,])-10, max(chains[,par,])+10)
+    chain_min = min(chains[,par,])
+    chain_max = max(chains[,par,])
+    lim = c(chain_min - chain_min*0.1, chain_max + chain_max*0.1)
 
 
     plot(1:n_samples, chains[,par,1], ylim = lim,

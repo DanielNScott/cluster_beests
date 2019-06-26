@@ -34,7 +34,7 @@ cdef inline double ExGauss_pdf(double value, double ips, double mu, double sigma
     cdef double z
     
     # Standard deviation or mu shift on the basis of valence. Should not be both.
-    sigma = sigma + shift*ips
+    #sigma = sigma + shift*ips
     #mu = mu + shift*ips
 
     if tau > 0.05*sigma:
@@ -48,7 +48,7 @@ cdef inline double ExGauss_cdf(double value, double ips, double mu, double sigma
     cdef double z
 
     # Standard deviation or mu shift on the basis of valence. Should not be both.
-    sigma = sigma + shift*ips
+    #sigma = sigma + shift*ips
     #mu = mu + shift*ips
 
     if tau > 0.05*sigma:
@@ -102,6 +102,7 @@ def SRRT(np.ndarray[double, ndim=1] value, np.ndarray[double, ndim=1] ips, np.nd
     cdef double p2
     cdef double sum_logp = 0
 
+    ipf_stop = ipf_stop + ishift_stop*(ips - 1)/2
     for i in range(size):
         p1= exp(ExGauss_pdf(value[i], ips[i], imu_go, isigma_go, itau_go, ishift_go))*ipf_stop
         p2= exp(ExGauss_pdf(value[i], ips[i], imu_go, isigma_go, itau_go, ishift_go))*exp(ExGauss_cdf(value[i]-issd[i], ips[i], imu_stop, isigma_stop, itau_stop, ishift_stop))*(1-ipf_stop)
